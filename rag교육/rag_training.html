@@ -110,27 +110,36 @@
   td strong, th strong{color:var(--ink-strong)}
   .ok{color:var(--green); font-weight:700} .no{color:#dc2626; font-weight:700}
 
-  /* ---------- 코드 ---------- */
-  .codeblock{position:relative; margin:18px 0; border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
+  /* ---------- 코드 (다크 IDE 테마, One Dark) ---------- */
+  .codeblock{position:relative; margin:18px 0; border:1px solid #181b20; border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
   .codeblock .chead{display:flex; align-items:center; justify-content:space-between; padding:8px 14px;
-    background:#f1f5f9; border-bottom:1px solid var(--line)}
-  .codeblock .chead .lang{font-size:12px; font-weight:700; color:var(--muted); letter-spacing:.04em; text-transform:uppercase}
-  .copybtn{appearance:none; border:1px solid var(--line); background:#fff; color:var(--muted); cursor:pointer;
+    background:#21252b; border-bottom:1px solid #181b20}
+  .codeblock .chead .lang{font-size:12px; font-weight:700; color:#7f8794; letter-spacing:.04em; text-transform:uppercase}
+  .copybtn{appearance:none; border:1px solid #3a414d; background:#2c313a; color:#abb2bf; cursor:pointer;
     font-size:12px; font-weight:600; padding:4px 11px; border-radius:7px; font-family:var(--sans)}
-  .copybtn:hover{color:var(--blue-strong); border-color:var(--blue-mid); background:var(--blue-soft)}
-  .copybtn.done{color:var(--green); border-color:#bbf7d0; background:var(--green-soft)}
-  pre{margin:0; padding:16px 18px; overflow-x:auto; background:#fbfdff; font-family:var(--mono);
-    font-size:13.5px; line-height:1.7; color:#1f2d3d; tab-size:2}
-  pre .cmt{color:var(--faint)}
-  pre .kw{color:var(--indigo); font-weight:600}
-  pre .str{color:#0e7490}
-  /* 자동 syntax highlight 클래스 */
-  pre .hl-kw{color:var(--indigo);font-weight:600}
-  pre .hl-str{color:#0e7490}
-  pre .hl-cmt{color:var(--faint);font-style:italic}
-  pre .hl-num{color:#b45309}
-  pre .hl-fn{color:var(--blue-strong)}
-  pre .hl-dec{color:#7c3aed}
+  .copybtn:hover{color:#fff; border-color:#4b5563; background:#343a45}
+  .copybtn.done{color:#98c379; border-color:#3f6b43; background:#2b3a2e}
+  pre{margin:0; padding:16px 18px; overflow-x:auto; background:#282c34; font-family:var(--mono);
+    font-size:13.5px; line-height:1.7; color:#abb2bf; tab-size:2}
+  /* IDE 토큰 색 (변수=기본색, 나머지는 역할별 구분) */
+  pre .hl-kw{color:#c678dd}                       /* keyword */
+  pre .hl-def{color:#dcdcaa}                       /* 함수/메서드 정의명 */
+  pre .hl-call{color:#61afef}                      /* 함수 호출 */
+  pre .hl-method{color:#56b6c2}                    /* 메서드 호출 */
+  pre .hl-cls{color:#4ec9b0}                       /* 클래스/타입 */
+  pre .hl-self{color:#e5c07b; font-style:italic}   /* self / cls */
+  pre .hl-builtin{color:#56b6c2}                   /* 빌트인 */
+  pre .hl-dec{color:#e5c07b}                       /* 데코레이터 */
+  pre .hl-str{color:#98c379}                       /* 문자열 */
+  pre .hl-num{color:#d19a66}                       /* 숫자 */
+  pre .hl-cmt{color:#7f848e; font-style:italic}    /* 주석 */
+  pre .hl-attr{color:#abb2bf}                      /* 속성 접근 */
+  pre .hl-prop{color:#e06c75}                      /* JSON/YAML 키 */
+  pre .hl-bool{color:#d19a66}                      /* true/false/null */
+  pre .hl-punct{color:#7f8794}
+  /* 레거시 수기 클래스 다크 대응 */
+  pre .kw{color:#c678dd} pre .str{color:#98c379} pre .cmt{color:#7f848e; font-style:italic}
+  pre .fn{color:#61afef}
   code.inline{font-family:var(--mono); font-size:.9em; background:#f1f5f9; border:1px solid var(--line);
     border-radius:6px; padding:1px 6px; color:#be123c}
 
@@ -1679,61 +1688,66 @@ print(ans.choices[0].message.content)            <span class="cmt"># → "총 90
     };
   });
 
-  // ---- Syntax Highlighting ----
+  // ===== IDE Syntax Highlighting (단일 패스, lookbehind 미사용) =====
   (function(){
     function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-    // 단일 패스 combined 토큰: 체이닝하면 이전 교체로 삽입된 <span class="...">의
-    // 'class' 같은 단어가 Python 키워드로 재매칭되는 버그가 생기므로 한 번에 처리
-    var TOKEN=new RegExp(
-      '\\b(\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)\\b'
-      +'|\\b(False|None|True|and|as|assert|async|await|break|class|continue|def|del'
-      +'|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal'
-      +'|not|or|pass|raise|return|try|while|with|yield)\\b'
-      +'|\\b(print|len|range|int|float|str|list|dict|set|tuple|type|isinstance|round'
-      +'|sorted|enumerate|zip|map|filter|open|abs|max|min|sum|any|all|input|repr'
-      +'|format|iter|next|reversed|callable|getattr|setattr|hasattr|vars|dir|np|pd)\\b',
-      'g');
-    var CY_KW=/\b(MATCH|CREATE|RETURN|WHERE|SET|MERGE|DELETE|DETACH|WITH|OPTIONAL|LIMIT|ORDER|BY|AS|ON|CALL|YIELD|UNWIND|UNION|ALL|SKIP)\b/g;
+    var KW=new Set(['False','None','True','and','as','assert','async','await','break','class',
+      'continue','def','del','elif','else','except','finally','for','from','global','if','import',
+      'in','is','lambda','nonlocal','not','or','pass','raise','return','try','while','with','yield','match','case']);
+    var BUILTIN=new Set(['print','len','range','int','float','str','list','dict','set','tuple','type',
+      'isinstance','round','sorted','enumerate','zip','map','filter','open','abs','max','min','sum','any','all',
+      'input','repr','format','iter','next','reversed','callable','getattr','setattr','hasattr','vars','dir',
+      'super','property','staticmethod','classmethod','bool','bytes','frozenset','object','Exception','np','pd']);
 
-    function applyKw(s){
-      return s.replace(TOKEN,function(m,num,kw,fn){
+    var PYTOK=/(\bdef\b|\bclass\b)(\s+)([A-Za-z_]\w*)|(@[A-Za-z_][\w.]*)|\b(self|cls)\b|\b(0[xX][0-9a-fA-F]+|\d+\.?\d*(?:[eE][+-]?\d+)?)\b|\.([A-Za-z_]\w*)(?=\s*\()|\.([A-Za-z_]\w*)|\b([A-Za-z_]\w*)(?=\s*\()|\b([A-Za-z_]\w*)\b/g;
+
+    function clsFor(name,isCall){
+      if(KW.has(name)) return '<span class="hl-kw">'+name+'</span>';
+      if(BUILTIN.has(name)) return '<span class="hl-builtin">'+name+'</span>';
+      if(/^[A-Z]/.test(name)) return '<span class="hl-cls">'+name+'</span>';
+      if(isCall) return '<span class="hl-call">'+name+'</span>';
+      return name;
+    }
+    function applyPyTok(s){
+      return s.replace(PYTOK,function(m,dk,ws,dn,dec,slf,num,meth,attr,call,word){
+        if(dk!==undefined){var nc=(dk==='class')?'hl-cls':'hl-def';
+          return '<span class="hl-kw">'+dk+'</span>'+ws+'<span class="'+nc+'">'+dn+'</span>';}
+        if(dec!==undefined) return '<span class="hl-dec">'+dec+'</span>';
+        if(slf!==undefined) return '<span class="hl-self">'+slf+'</span>';
         if(num!==undefined) return '<span class="hl-num">'+num+'</span>';
-        if(kw!==undefined)  return '<span class="hl-kw">'+kw+'</span>';
-        if(fn!==undefined)  return '<span class="hl-fn">'+fn+'</span>';
+        if(meth!==undefined) return '.<span class="hl-method">'+meth+'</span>';
+        if(attr!==undefined) return '.<span class="hl-attr">'+attr+'</span>';
+        if(call!==undefined) return clsFor(call,true);
+        if(word!==undefined) return clsFor(word,false);
         return m;
       });
     }
-
-    function hlStrings(plain){
+    var PFX=function(c){return c==='f'||c==='F'||c==='r'||c==='R'||c==='b'||c==='B';};
+    function pyStrings(plain){
       var out='',i=0,n=plain.length;
       while(i<n){
         var c=plain[i];
-        var isF=(c==='f'||c==='F')&&i+1<n&&(plain[i+1]==='"'||plain[i+1]==="'");
+        var isF=PFX(c)&&i+1<n&&(plain[i+1]==='"'||plain[i+1]==="'");
         var q=isF?plain[i+1]:c;
         if(q==='"'||q==="'"){
           var si=i, j=i+(isF?1:0);
-          if(plain.slice(j,j+3)===q+q+q){
-            j+=3; var e=plain.indexOf(q+q+q,j); j=e<0?n:e+3;
-          } else {
-            j++;
-            while(j<n){if(plain[j]==='\\'){j+=2;continue;}if(plain[j]===q){j++;break;}j++;}
-          }
+          if(plain.slice(j,j+3)===q+q+q){ j+=3; var e=plain.indexOf(q+q+q,j); j=e<0?n:e+3; }
+          else { j++; while(j<n){ if(plain[j]==='\\'){j+=2;continue;} if(plain[j]===q){j++;break;} j++; } }
           out+='<span class="hl-str">'+esc(plain.slice(si,j))+'</span>'; i=j;
         } else {
-          var j=i;
-          while(j<n){
-            var d=plain[j];
-            if(d==='"'||d==="'"||(d==='f'||d==='F')&&j+1<n&&(plain[j+1]==='"'||plain[j+1]==="'"))break;
-            j++;
+          var k=i;
+          while(k<n){
+            var d=plain[k];
+            if(d==='"'||d==="'"||(PFX(d)&&k+1<n&&(plain[k+1]==='"'||plain[k+1]==="'"))) break;
+            k++;
           }
-          out+=applyKw(esc(plain.slice(i,j))); i=j;
+          out+=applyPyTok(esc(plain.slice(i,k))); i=k;
         }
       }
       return out;
     }
-
-    function hlPy(raw){
+    function hlPython(raw){
       return raw.split('\n').map(function(line){
         var ci=-1,inS=false,sc='';
         for(var i=0;i<line.length;i++){
@@ -1742,24 +1756,49 @@ print(ans.choices[0].message.content)            <span class="cmt"># → "총 90
             if(c==='"'||c==="'"){
               if(line.slice(i,i+3)===c+c+c){var e=line.indexOf(c+c+c,i+3);i=e<0?line.length:e+2;}
               else{inS=true;sc=c;}
-            } else if((c==='f'||c==='F')&&(line[i+1]==='"'||line[i+1]==="'")){
-              var q=line[++i];i++;
-              while(i<line.length){if(line[i]==='\\'){i+=2;continue;}if(line[i]===q)break;i++;}
             } else if(c==='#'){ci=i;break;}
-          } else {
-            if(c==='\\'){i++;continue;}
-            if(c===sc)inS=false;
-          }
+          } else { if(c==='\\'){i++;continue;} if(c===sc)inS=false; }
         }
         var code=ci>=0?line.slice(0,ci):line;
         var cmt=ci>=0?line.slice(ci):'';
-        var out=hlStrings(code);
-        out=out.replace(/^(\s*)(@[\w.]+)/,'$1<span class="hl-dec">$2</span>');
-        if(cmt)out+='<span class="hl-cmt">'+esc(cmt)+'</span>';
+        var out=pyStrings(code);
+        if(cmt) out+='<span class="hl-cmt">'+esc(cmt)+'</span>';
         return out;
       }).join('\n');
     }
 
+    var JSONTOK=/("(?:\\.|[^"\\])*")(?=\s*:)|("(?:\\.|[^"\\])*")|\b(true|false|null)\b|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)/g;
+    function hlJSON(raw){
+      return esc(raw).replace(JSONTOK,function(m,key,strv,bool,num){
+        if(key!==undefined) return '<span class="hl-prop">'+key+'</span>';
+        if(strv!==undefined) return '<span class="hl-str">'+strv+'</span>';
+        if(bool!==undefined) return '<span class="hl-bool">'+bool+'</span>';
+        if(num!==undefined) return '<span class="hl-num">'+num+'</span>';
+        return m;
+      });
+    }
+
+    var YVAL=/("[^"]*"|'[^']*')|\b(true|false|null)\b|\b(\d+(?:\.\d+)?)\b/g;
+    function hlYamlVal(v){
+      return esc(v).replace(YVAL,function(m,s,b,num){
+        if(s!==undefined) return '<span class="hl-str">'+s+'</span>';
+        if(b!==undefined) return '<span class="hl-bool">'+b+'</span>';
+        if(num!==undefined) return '<span class="hl-num">'+num+'</span>';
+        return m;
+      });
+    }
+    function hlYamlLine(line){
+      if(/^\s*#/.test(line)) return '<span class="hl-cmt">'+esc(line)+'</span>';
+      if(/^\s*---\s*$/.test(line)) return '<span class="hl-punct">'+esc(line)+'</span>';
+      var m=line.match(/^(\s*-?\s*)([A-Za-z_][\w.\-\/]*)(:)(\s?)([\s\S]*)$/);
+      if(m) return esc(m[1])+'<span class="hl-prop">'+esc(m[2])+'</span>'+m[3]+esc(m[4])+hlYamlVal(m[5]);
+      var lm=line.match(/^(\s*-\s+)([\s\S]*)$/);
+      if(lm) return esc(lm[1])+hlYamlVal(lm[2]);
+      return hlYamlVal(line);
+    }
+    function hlYAML(raw){ return raw.split('\n').map(hlYamlLine).join('\n'); }
+
+    var CY_KW=/\b(MATCH|CREATE|RETURN|WHERE|SET|MERGE|DELETE|DETACH|WITH|OPTIONAL|LIMIT|ORDER|BY|AS|ON|CALL|YIELD|UNWIND|UNION|ALL|SKIP)\b/g;
     function hlCypher(raw){
       return esc(raw)
         .replace(CY_KW,'<span class="hl-kw">$&</span>')
@@ -1771,11 +1810,13 @@ print(ans.choices[0].message.content)            <span class="cmt"># → "총 90
       var langEl=block.querySelector('.lang');
       var lang=langEl?langEl.textContent.toLowerCase():'';
       var codeEl=block.querySelector('code')||block.querySelector('pre');
-      if(!codeEl)return;
+      if(!codeEl) return;
       var raw=codeEl.textContent;
       var html;
-      if(lang.indexOf('cypher')>=0) html=hlCypher(raw);
-      else if(lang.indexOf('python')>=0||lang.indexOf('numpy')>=0) html=hlPy(raw);
+      if(lang.indexOf('python')>=0||lang.indexOf('numpy')>=0) html=hlPython(raw);
+      else if(lang.indexOf('json')>=0) html=hlJSON(raw);
+      else if(lang.indexOf('yaml')>=0||lang.indexOf('yml')>=0) html=hlYAML(raw);
+      else if(lang.indexOf('cypher')>=0) html=hlCypher(raw);
       else html=esc(raw);
       codeEl.innerHTML=html;
     });

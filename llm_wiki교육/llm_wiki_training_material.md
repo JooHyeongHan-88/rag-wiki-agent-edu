@@ -569,6 +569,8 @@ related:
 
 📌 Knowledge Page의 본질: **"코드를 읽지 않고도 이 엔티티를 안전하게 쓸 수 있을 만큼"** 의 계약·불변식·협력자·관계를 담습니다. 구현 세부(루프·변수)는 넣지 않습니다 — 그건 코드(Raw)가 진실이니까. Wiki는 *코드에서 자명하지 않은* 것(불변식, "None은 멱등 no-op이다", 관계)을 담습니다.
 
+🧪 **시나리오 (불변식이 버그를 막는다):** 개발자 J가 Claude Code로 결제 재시도 핸들러를 짭니다. `issue_invoice`가 `None`을 반환하자, Wiki가 없었다면 에이전트는 코드만 보고 "발행 실패"로 오인해 `raise HTTPException(500)` 같은 잘못된 처리를 넣었을 겁니다(중복 호출마다 500 → 알림 폭주). 하지만 `CLAUDE.md`(Section 16) 규칙대로 `InvoiceService` Knowledge Page를 먼저 읽어 **"None = 이미 발행됨(멱등 no-op), 예외 아님"** 불변식을 알게 됨 → `None`이면 기존 인보이스를 조회해 정상 응답하는 올바른 코드를 작성. **코드에서 자명하지 않은 한 줄의 불변식**이 운영 사고를 막은 것 — 이게 Knowledge Page가 존재하는 이유입니다.
+
 ### 6-3. Concept Page 해부 — FastAPI Dependency Injection
 
 스펙이 요구한 FastAPI 예시(`BackgroundTasks`, `Dependency Injection`, `APIRouter`)를 Concept Page로 표현해 봅니다.
@@ -1354,11 +1356,11 @@ related:
 
 ### 13-2. Day 30 — Alembic 마이그레이션이 Wiki를 건드림
 
-🧵 누가 `migration 0042`로 `Invoice`에 `idempotency_key` 컬럼을 추가합니다.
+🧵 누가 `migration 0042`로 `Invoice`에 `idempotency_key` 컬럼을 추가합니다. **추적·감사용**(어느 멱등 키로 발행됐는지 기록)이지 **unique 제약이 아닙니다** — 경합 차단은 여전히 Redis SETNX의 몫이고, DB unique는 ADR-017에서 폐기됐습니다.
 
 🧪 Maintenance 에이전트(Section 12)가 PR 훅으로 기동:
 - 영향: `Invoice.md`(컬럼 추가), `idempotent-invoice-issuance.md`(저장 방식 명확화).
-- `Invoice.md`의 "스키마" 섹션에 `idempotency_key: str (unique, nullable)` 추가, `migration: 0042`를 source에 추가.
+- `Invoice.md`의 "스키마" 섹션에 `idempotency_key: str | None (non-unique, 추적용)` 추가, `migration: 0042`를 source에 추가. **정본 진술에 "이 컬럼은 가드가 아니라 기록"이라고 명시** → 미래의 에이전트가 unique 제약으로 "개선"하려다 ADR-017의 경합 500을 재현하는 일을 막음.
 - Lint: Stale 해소. PR에 코드+Wiki diff 동봉.
 
 ### 13-3. Day 45 — 관통 질문 재방문 (성과 측정)
