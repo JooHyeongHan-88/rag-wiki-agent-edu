@@ -1,11 +1,11 @@
-# LLM Wiki 완전 정복 — AI Agent 시대의 지식 계층 구축·운영 실무 교안
+# LLM Wiki — Graph RAG로 쌓이지 않던 지식을, Agent가 직접 쌓고 고치게 만들기
 
-> **RAG로는 부족했던 "구조화된 지식"을, Agent가 직접 만들고 읽고 고치게 만드는 기술**
+> **카파시(Andrej Karpathy)가 제안한 "지식은 검색되는 게 아니라 축적된다"는 패턴을, Claude Code로 직접 구축·운영하는 실무 교안**
 >
-> 본 문서는 **Python · 딥러닝 기초 · Transformer · Embedding · Vector DB · RAG · LangChain**(또는 유사 프레임워크)을 이미 사용해 본 **엔지니어**를 대상으로 합니다.
-> LLM·RAG·임베딩의 *기초*는 다시 설명하지 않습니다. 그 위에 **LLM Wiki라는 지식 계층(knowledge layer)을 직접 구축·운영하는 실무**를 쌓습니다.
+> 본 문서는 **RAG와 Graph RAG를 이미 이해하고 있는 Claude Code 사용자**를 대상으로 합니다.
+> 임베딩·벡터DB·청킹의 *기초*는 다시 설명하지 않습니다. 대신 "왜 Graph RAG로는 지식이 잘 **쌓이지** 않았는가"에서 출발해, 그 빈자리를 메우는 **LLM Wiki**라는 패턴을 개념부터 E2E 구축까지 쌓습니다.
 >
-> 설명 : 실무 ≈ **40 : 60**. 모든 아키텍처는 하나의 구체적 코드베이스(`acme-billing`)와 "Claude Code를 페어로 쓰는 팀"의 실제 시나리오에 묶어서 설명합니다.
+> 균형: 개념 ≈ **40**, 실무(구축·운영) ≈ **60**. 모든 설명은 하나의 구체적 주제 — **"반도체/AI 메모리(HBM) 지식 축적"** — 에 묶어서 끝까지 관통시킵니다.
 
 ---
 
@@ -15,1889 +15,797 @@
 
 이 교육을 마치면 여러분은 다음을 **직접 설명하고, 직접 구축할 수 있게** 됩니다.
 
-- [ ] LLM Wiki가 **왜 등장했는가** (RAG의 한계는 정확히 무엇인가)
-- [ ] RAG와 **무엇이 다른가** (검색 단위·중복·관계·운영비용)
-- [ ] LLM Wiki의 **핵심 철학**: "AI가 읽기 위한 지식 계층"
-- [ ] Wiki가 **단순 문서 저장소와 다른 이유**
-- [ ] **Raw / Wiki / Schema** 3계층 구조와 각 계층의 입력·출력
-- [ ] **Ingest / Query / Lint** 세 파이프라인의 단계별 동작
-- [ ] Agent가 Wiki를 **생성하는 방식**과 **사용하는 방식**
-- [ ] Wiki를 **운영**하고 **품질을 유지**하는 방법 (거버넌스·HITL·freshness)
-- [ ] 실제 프로젝트(모노레포·엔터프라이즈 문서 통합 포함)에 **적용하는 방법**
-- [ ] Claude Code / Codex / Cursor 같은 코딩 에이전트에서 Wiki를 **읽고·검색하고·수정**하게 만드는 법
+- [ ] **Graph RAG의 한계**를 정확히 말할 수 있다 — 구축·유지보수 공수, 그리고 "지식이 축적되지 않는" 구조적 이유
+- [ ] **LLM Wiki**가 무엇이며 왜 등장했는가 (카파시의 핵심 통찰: *compile once, compound forever*)
+- [ ] **Raw / Wiki / Schema** 3계층이 각각 무엇을 담고, 실제 문서가 어떻게 생겼는지
+- [ ] **Ingest / Query / Lint** 세 동작이 단계별로 무엇을 하는지
+- [ ] 실제 raw를 어떻게 확보 → ingest → 어떤 wiki가 생기고 → query하면 어떤 답이 나오는지 (E2E)
+- [ ] **Obsidian**으로 wiki가 어떻게 그래프로 시각화되는지
+- [ ] **Claude Code**로 이 wiki를 실무적으로 구축·운영하는 법 (구축 전과 후의 차이)
+- [ ] **LLM Wiki가 늘 능사는 아니다** — Graph RAG와의 장단점, 손익분기, 언제 무엇을 쓸지
 
 ### 이 문서를 읽는 법 — 약속된 기호
 
 | 기호 | 의미 |
 |------|------|
-| 💡 | **비유 / 직관** — 추상 개념을 익숙한 것에 빗댐 (엔지니어 대상이어도 비유는 유지합니다) |
+| 💡 | **비유 / 직관** — 추상 개념을 익숙한 것에 빗댐 (기술자 대상이어도 비유는 유지합니다) |
 | 📌 | **핵심 포인트** — 반드시 기억할 것 |
-| ⚠️ | **함정 / 안티패턴** — 현업에서 실제로 터지는 실패 |
-| 🔧 | **실무 팁** — 운영·튜닝 시 참고 |
-| 🧪 | **실무 시나리오** — `acme-billing`을 Claude Code로 운영하는 팀의 구체적 업무 흐름 |
-| 💻 | **코드** — 거의 실행 가능한 실제 라이브러리 기반 스니펫 (pseudo 아님) |
+| ⚠️ | **함정 / 한계** — 현실에서 실제로 터지는 실패와 약점 |
+| 🔧 | **실무 팁** — 구축·운영 시 참고 |
+| 🧪 | **시나리오** — "반도체 지식을 쌓는 한 분석가"의 구체적 작업 흐름 |
+| 📄 | **실제 문서** — raw·wiki·schema·index·log·lint 산출물의 실물 (이 주제의 "코드 스니펫") |
+| ⌨️ | **Claude Code 프롬프트** — 실제로 에이전트에게 시키는 말 |
 | 🧭 | **한 줄 요약** — 각 섹션 결론 |
 
-### 🧵 이 문서를 관통하는 단 하나의 예시 — `acme-billing`
+### 🧵 이 문서를 관통하는 단 하나의 예시 — "반도체 지식을 쌓는 분석가"
 
-RAG 교육이 "출산휴가 며칠인가요?"라는 **하나의 질문**을 끝까지 따라갔듯, 이 문서는 **하나의 코드베이스와 하나의 질문**을 20개 섹션 내내 관통합니다.
+RAG 교육이 "출산휴가 며칠인가요?"라는 **하나의 질문**을 끝까지 따라갔듯, 이 문서는 **한 사람의 지식 축적 시나리오와 하나의 질문**을 처음부터 끝까지 관통합니다.
 
-**코드베이스: `acme-billing`** — 구독 결제 백엔드 (SaaS의 청구 모듈)
-
-```
-acme-billing/                      # FastAPI + SQLAlchemy 2.0 + Alembic + Redis + Celery
-├── app/
-│   ├── api/
-│   │   ├── subscriptions.py       # POST /subscriptions/{id}/renew, /cancel
-│   │   └── webhooks.py            # POST /webhooks/stripe
-│   ├── services/
-│   │   ├── invoice.py             # InvoiceService.issue_invoice()
-│   │   ├── subscription.py        # SubscriptionService.renew()
-│   │   └── refund.py              # RefundPolicy.compute()
-│   ├── tasks/
-│   │   └── billing.py             # Celery: issue_invoice_task  (구 FastAPI BackgroundTasks)
-│   └── models/
-│       ├── subscription.py        # Subscription, SubscriptionStatus
-│       ├── invoice.py             # Invoice
-│       └── payment.py             # Payment, Customer
-├── migrations/versions/
-│   └── 0042_add_invoice_idempotency_key.py
-└── docs/adr/
-    ├── ADR-017-idempotent-invoice-issuance.md
-    └── ADR-021-move-background-tasks-to-celery.md
-```
+**상황** — 여러분은 반도체/AI 산업을 추적하는 한 사람(개인 투자자·리서처·산업 담당자 누구든)입니다. 매주 뉴스·리포트·기업 공시를 **수십 건** 읽습니다. 문제는 읽고 나면 머릿속에서, 그리고 흩어진 메모에서 **사실이 휘발**된다는 것. "분명히 어디서 봤는데…"가 반복됩니다. 여러분은 Claude Code를 페어로 써서, 읽은 것을 **한 번 소화해 영구적으로 쌓이는 지식**으로 만들고 싶습니다.
 
 **관통 질문 (이 문서의 "출산휴가 며칠인가요?")**
 
-> 🧵 **"구독을 갱신할 때 인보이스가 중복 발행되지 않도록, 코드 어디에서 어떻게 보장하나?"**
+> 🧵 **"엔비디아 AI 가속기용 HBM은 지금 누가 주도하고, SK하이닉스가 앞선 이유는 무엇이며, 이게 삼성·마이크론과 어떻게 얽혀 있나?"**
 
-이 질문이 좋은 이유: 정답이 **한 파일에 없습니다.** `엔드포인트 → 서비스 → Celery 태스크 → 모델 → 마이그레이션 → Redis 키 → ADR → Slack 사고 기록**에 흩어져 있고, 이들의 **관계를 따라가야** 답이 됩니다. 바로 이 "관계 추적"이 RAG와 LLM Wiki를 가르는 지점입니다. 같은 질문을 Section 1(왜 RAG로 부족한가), Section 9(Query), Section 13(Demo), Section 16(Claude Code)에서 반복해서 풀어 봅니다.
+이 질문이 좋은 이유: 정답이 **한 기사에 없습니다.** SK하이닉스의 엔비디아 독점 공급(2023 기사), HBM이 무엇인지(기술 해설), 삼성의 추격과 마이크론의 부상(2025 점유율 기사), SK하이닉스의 2025년 영업이익 첫 추월(2026.1 기사), HBM4와 차세대 GPU(2026 기사)에 **흩어져 있고**, 이들의 **관계**(공급·경쟁·탑재)와 **시간에 따른 변화**(과거 "삼성 1위" → 현재 "HBM은 SK 주도")를 엮어야 답이 됩니다. 바로 이 "관계 + 시간에 따른 축적"이 Graph RAG와 LLM Wiki를 가르는 지점입니다.
 
-**팀 설정** — `acme-billing`을 운영하는 5인 백엔드 팀. 전원 Claude Code를 페어 프로그래밍 도구로 사용. 🧪 시나리오는 모두 이 팀 기준입니다.
+이 질문을, Section 1(왜 Graph RAG로 안 됐나) → Section 4(query는 어떻게 답하나) → Section 5(E2E 총정리)에서 **반복해서** 풀어 봅니다.
 
 ### 전체 목차
 
 | # | 섹션 | 핵심 |
 |---|------|------|
-| 1 | [LLM Wiki가 등장한 배경](#section-1) | RAG의 4대 한계 + Agent 시대의 지식 문제 |
-| 2 | [LLM Wiki란 무엇인가](#section-2) | Compression·Distillation·Structured Knowledge |
-| 3 | [RAG vs LLM Wiki 상세 비교](#section-3) | 8개 항목 비교표 |
-| 4 | [Core Architecture — 3계층](#section-4) | Raw ↓ Wiki ↓ Schema |
-| 5 | [Raw Layer](#section-5) | Agent가 읽는 원천 |
-| 6 | [Wiki Layer](#section-6) | Knowledge/Concept Page·Relationship·Canonical |
-| 7 | [Schema Layer](#section-7) | Entity·Relationship·Metadata·Constraints (JSON) |
-| 8 | [Ingest Pipeline](#section-8) | Extract→Normalize→Merge→Dedup→Update |
-| 9 | [Query Pipeline](#section-9) | Intent→Search→Traversal→Context→Answer |
-| 10 | [Lint Pipeline](#section-10) | Broken Link·Stale·Duplicate·Schema Violation |
-| 11 | [Agent-Driven Construction](#section-11) | 새 repo → Wiki 자동 생성 → PR |
-| 12 | [Agent-Driven Maintenance](#section-12) | 커밋 → 영향분석 → 갱신 → Lint |
-| 13 | [Demo 1 — FastAPI 백엔드](#section-13) | `acme-billing` Wiki 생성 전과정 |
-| 14 | [Demo 2 — 대규모 모노레포](#section-14) | 코드·아키텍처·의존성 분석 |
-| 15 | [Demo 3 — 엔터프라이즈 문서 통합](#section-15) | Notion·ADR·Slack·API Docs |
-| 16 | [Claude Code / Codex / Cursor 활용](#section-16) | Agent가 Wiki를 읽고·검색하고·고친다 |
-| 17 | [구현 예제 (Python)](#section-17) | Generator·Linter·Query Engine·Repo→Wiki |
-| 18 | [운영 전략](#section-18) | HITL·Approval·Ownership·Governance·Freshness |
-| 19 | [실패 사례](#section-19) | Wiki 폭증·중복·Hallucination·Schema Drift |
-| 20 | [Best Practices](#section-20) | 기업 환경 기준 정리 |
-| — | [부록](#appendix) | 용어·체크리스트·참고 |
+| 1 | [왜 Graph RAG로는 지식이 쌓이지 않았나](#sec1) | 구축·유지보수 공수 + "매 쿼리 재발견" 문제 |
+| 2 | [LLM Wiki란 무엇인가 (개념)](#sec2) | 카파시의 통찰 · compile once, compound forever |
+| 3 | [3계층 — Raw / Wiki / Schema](#sec3) | 실제 문서로 보는 세 레이어 |
+| 4 | [3동작 — Ingest / Query / Lint](#sec4) | 한 source가 10~15 페이지를 건드린다 |
+| 5 | [E2E 시나리오 — 처음부터 끝까지](#sec5) | 빈 폴더 → 4주치 ingest → query → lint |
+| 6 | [Obsidian으로 시각화하기](#sec6) | [[링크]] → 그래프 뷰 · 백링크 · Dataview |
+| 7 | [Claude Code로 실무 구축하기](#sec7) | 셋업 · 프롬프트 · 운영 · 구축 전/후 |
+| 8 | [LLM Wiki vs Graph RAG — 언제 무엇을](#sec8) | 손익분기 · 한계 · 하이브리드 |
+| — | [부록](#appendix) | 용어 · 체크리스트 · 참고자료 |
 
 ---
 
-<a id="section-1"></a>
-## Section 1. LLM Wiki가 등장한 배경 — "왜 RAG만으로는 충분하지 않은가"
+<a id="sec1"></a>
+## Section 1. 왜 Graph RAG로는 지식이 "쌓이지" 않았나
 
-RAG는 지난 몇 년간 "LLM에 우리 지식을 주입"하는 사실상의 표준이었습니다. 여러분도 이미 `Loader → Splitter → Embedding → Vector Store → Retriever → Prompt → LLM` 파이프라인을 짜 봤을 겁니다. 그런데 그 RAG 시스템을 **Agent**(스스로 여러 턴에 걸쳐 코드를 읽고 고치는)에게 물려주는 순간, 네 가지 한계가 동시에 터집니다.
+여러분은 이미 압니다. RAG는 청크를 벡터 유사도로 검색합니다. 그런데 청크는 서로 **독립**이라, "SK하이닉스가 **공급하는** 곳"처럼 **관계를 따라가는** 질문에 약합니다. 그래서 **Graph RAG**가 나왔습니다 — 문서에서 엔티티와 관계를 추출해 **지식 그래프**를 만들고, 그 그래프를 순회하며 답하는 방식이죠. 관계 질문에는 분명 RAG보다 낫습니다.
 
-먼저 한계를 **관통 예시로** 체감해 봅시다. `acme-billing`의 RAG 인덱스는 코드·ADR·Slack·Notion을 전부 청크로 쪼개 벡터DB에 넣어 둔 상태입니다. 여기에 관통 질문을 던집니다.
+문제는 Graph RAG를 **"개인·팀이 꾸준히 쌓아가는 지식 베이스"**로 쓰려 할 때 드러납니다. 두 가지 고질병이 있습니다.
 
-> 🧵 "구독 갱신 시 인보이스 중복 발행을 어떻게 막나?"
+### 1-1. 고질병 ①: 구축과 유지보수에 공수가 너무 든다
 
-RAG retriever가 `k=8`로 가져온 청크는 대략 이렇습니다.
+지식 그래프는 **공짜로 생기지 않습니다.** 문서마다 LLM으로 엔티티/관계를 추출(extraction)하고, 중복 엔티티를 정규화(resolution)하고, 커뮤니티 요약을 만들고, 임베딩·클러스터링을 돌립니다. 규모가 커지면 비용과 운영 부담이 가파르게 올라갑니다.
 
-```
-[chunk 1] app/api/subscriptions.py  L40-78   renew_subscription() 일부
-[chunk 2] ADR-017 초안 v1            "멱등키를 DB unique 제약으로…" (폐기된 안)
-[chunk 3] ADR-017 최종              "멱등키를 Redis SETNX로…"      (채택된 안)
-[chunk 4] Slack #billing-incidents  "또 중복 인보이스 떴어요" (2025-11, 사고 당시)
-[chunk 5] app/services/invoice.py   issue_invoice() 일부 (단, Celery 이전의 옛 시그니처)
-[chunk 6] tests/test_invoice.py     test_double_issue (스킵 처리된 테스트)
-[chunk 7] Notion "결제팀 온보딩"     "인보이스는 BackgroundTasks로…" (ADR-021 이전 설명)
-[chunk 8] app/models/invoice.py     Invoice 컬럼 정의 일부
-```
+| 항목 | 현실 (업계 보고 기준) |
+|---|---|
+| 엔티티/관계 추출 | 문서당 다수의 LLM 호출, 토큰 사용 **3~5배** 증가 |
+| 초기 구축 | 도메인 전문가+엔지니어가 **수개월**, 프로젝트 규모로 가면 큰 비용 |
+| 인덱스 성장 | 코퍼스 대비 **초선형(super-linear)** — 문서 늘수록 그래프가 더 빨리 비대해짐 |
+| 증분 갱신 | 새 문서 하나가 기존 엔티티/엣지와 충돌 → 부분 재구축이 까다로움 |
+| 추론 지연 | 그래프 순회·요약으로 쿼리 지연 **2~3배** |
+| 운영 | **온톨로지 드리프트** — 엔티티 이름이 바뀌고 관계가 추가되며, *소유자가 없으면 텍스트 청크보다 더 빨리 낡는다* |
 
-이 8개 청크를 그대로 프롬프트에 넣으면 어떤 일이 생기는지가 Section 1의 주제입니다.
+⚠️ **핵심 함정:** 지식 그래프는 만들 때보다 **유지할 때** 무너집니다. "SK하이닉스"와 "SK Hynix"와 "하이닉스"가 별개 노드가 되고, 새 기사가 들어올 때마다 스키마가 흔들립니다. 이걸 잡아 줄 **주인(ownership)과 검증 루프**가 없으면 그래프는 조용히 썩습니다.
 
-### 1-1. Context Explosion — 청크를 "더 많이 넣을수록" 나빠진다
+🧪 **시나리오:** 분석가인 여러분이 반도체 뉴스를 Graph RAG에 꾸준히 넣기로 합니다. 한 달 뒤, 추출 파이프라인 유지보수가 본업이 됩니다 — 엔티티 정규화 규칙을 손보고, 중복 노드를 합치고, 추출 프롬프트가 새 기사 형식에서 깨지는 걸 고칩니다. 정작 **"무엇을 알게 됐나"는 그래프 어딘가에 흩어진 노드/엣지**일 뿐, 사람이 펼쳐 읽을 "정리된 지식"은 어디에도 없습니다.
 
-Agent는 한 번 답하고 끝이 아니라 **수십 턴**을 돕니다. 매 턴마다 RAG가 8~20개 청크를 새로 끌어와 컨텍스트에 쌓습니다. 같은 `renew_subscription` 코드가 5번 다른 청크로 반복 등장하고, 폐기된 ADR 초안과 최종안이 **둘 다** 들어옵니다.
+### 1-2. 고질병 ②: 매 쿼리마다 지식을 "재발견"한다 — 축적되지 않는다
 
-토큰으로 환산하면 체감이 됩니다. 실제로 재 봅시다.
+이게 더 근본적입니다. RAG든 Graph RAG든, **답은 쿼리 시점에 즉석에서 만들어집니다.** 검색 → 합성 → 답변. 그리고 그 합성 결과는 **버려집니다.** 다음에 비슷한 질문을 하면, 시스템은 **같은 원문을 다시 검색하고 같은 통찰을 처음부터 다시 유도**합니다.
 
-> 💻 **RAG 청크 묶음이 매 턴 먹는 토큰 — `count_tokens`로 실측** (추정치 금지, 실제 API로)
+> 💡 **비유 — 매번 원서를 복사하는 사람 vs 노트를 쌓는 사람.**
+> Graph RAG는 도서관에서 질문할 때마다 관련 책 페이지를 찾아 **복사해 와서 그 자리에서 읽고, 다 읽으면 복사본을 버리는** 사람입니다. 다음 질문에 또 처음부터 찾습니다. 반면 **노트를 쌓는 사람**은 책을 한 번 읽고 **자기 말로 정리한 노트**를 남깁니다. 다음엔 책이 아니라 노트를 봅니다. 노트끼리 "이건 저것과 연결됨"이라고 화살표도 그어 둡니다. 시간이 갈수록 노트는 **두꺼워지고 똑똑해집니다.** 검색 시스템은 아무리 오래 써도 그대로지만, 노트는 **축적(compound)**됩니다.
 
-```python
-import anthropic
+카파시가 짚은 문장이 정확히 이겁니다.
 
-client = anthropic.Anthropic()
+> *"This works, but the LLM is rediscovering knowledge from scratch on every question."*
+> (RAG는 동작한다. 하지만 LLM은 매 질문마다 지식을 **맨바닥부터 다시 발견**하고 있다.)
+> — Andrej Karpathy, *LLM wiki* gist (2026-04-03)
 
-# RAG가 한 턴에 끌어온 8개 청크를 이어 붙인 컨텍스트 (예: 평균 350토큰 × 8 + 중복)
-rag_context = "\n\n".join(open(f"chunks/{i}.txt").read() for i in range(8))
+📌 **결론(왜 Graph RAG로 부족한가):** Graph RAG는 *검색(retrieval)*을 잘하려는 시스템입니다. 관계 검색까지는 잘하죠. 하지만 우리가 원한 건 *지식 축적(knowledge compounding)*입니다 — 한 번 소화한 사실을 **영구히 남기고, 관계를 엮고, 모순을 정리하고, 다음에 그대로 재사용**하는 것. Graph RAG에는 "사람도 펼쳐 읽고 에이전트도 그대로 쓰는, 점점 두꺼워지는 정리본"이라는 레이어가 통째로 없습니다.
 
-resp = client.messages.count_tokens(
-    model="claude-opus-4-8",
-    messages=[{"role": "user", "content": rag_context}],
-)
-print(resp.input_tokens)   # 예: ~3,200 토큰 / 턴
+### 1-3. 그렇다고 Graph RAG가 나쁜 건 아니다 (미리 못 박기)
 
-# 40턴 에이전트 세션이면 같은 류의 청크를 계속 재인출 → 누적 12만+ 토큰,
-# 그중 상당수가 "동일 코드/폐기된 ADR"의 중복.
-```
-
-📌 **핵심:** 컨텍스트 윈도우가 1M으로 커진 게 문제를 해결하지 못합니다. (1) 입력 토큰은 곧 비용이고, (2) 길수록 느리며, (3) **Lost-in-the-middle**로 정작 핵심을 흘립니다. RAG는 "검색 단위가 청크"라서, Agent의 긴 세션에서 **같은 지식을 중복해서, 여러 형태로, 계속 다시** 퍼 올립니다. 이것이 Context Explosion입니다.
-
-🧪 **시나리오:** 신입 D가 Claude Code로 "환불 로직 좀 봐줘"를 시킵니다. 에이전트는 세션마다 결제 도메인 청크를 처음부터 다시 긁고, 매번 "인보이스가 BackgroundTasks인지 Celery인지"를 코드에서 재추론합니다. 같은 80k 토큰의 재발견을 **모든 세션이 반복**합니다. 팀의 토큰 청구서가 선형으로 늘고, 답의 일관성은 세션마다 출렁입니다.
-
-### 1-2. Knowledge Duplication — 같은 사실이 N벌로 흩어진다
-
-`acme-billing`에서 "인보이스 발행은 멱등해야 한다"는 **하나의 사실**이 물리적으로 몇 군데에 있을까요?
-
-```
-① app/services/invoice.py 의 코드 (Redis SETNX)
-② ADR-017 (채택안)        + ADR-017 초안 v1 (폐기안, 그러나 git/위키에 남음)
-③ Slack 사고 스레드        (사고 당시 맥락)
-④ Notion 온보딩 문서       (옛 설명: BackgroundTasks — 지금은 틀림)
-⑤ tests/test_invoice.py    (검증 코드)
-⑥ docstring / 주석         (또 다른 표현)
-```
-
-RAG는 이 **중복을 그대로** 인덱싱합니다. 임베딩이 비슷하니 검색 시 6개가 한꺼번에 딸려 오고, 그중 ②의 폐기안과 ④의 옛 설명은 **현재 사실과 모순**됩니다. Agent는 모순된 근거를 받고 "BackgroundTasks로 처리됩니다"라고 자신 있게 틀린 답을 합니다.
-
-> 💡 **비유 — 정리 안 된 위키 vs 사수의 인수인계 노트**
->
-> RAG는 도서관의 **복사기**입니다. 키워드/벡터가 맞는 페이지를 닥치는 대로 복사해 줍니다 — 초판·개정판·낙서·찢어진 메모까지 섞여서. LLM Wiki는 그 책들을 **다 읽고 정리한 사수의 인수인계 위키**입니다. 중복을 합치고, 모순을 해소해 "현재 맞는 한 문장(canonical)"으로 만들고, "이건 저것과 연결됨"이라는 지도까지 붙여 둡니다.
-
-📌 **핵심:** RAG에는 **"이 사실의 정본(canonical)이 무엇인가"라는 개념이 없습니다.** 모든 청크가 동등하게 검색 후보일 뿐입니다.
-
-### 1-3. Fragmented Retrieval — 관계를 따라가지 못한다
-
-관통 질문의 진짜 정답은 이런 모양입니다.
-
-```
-renew_subscription (엔드포인트)
-   └─ 호출→ SubscriptionService.renew()
-              └─ enqueue→ issue_invoice_task (Celery)        ← ADR-021로 BackgroundTasks에서 이전됨
-                            └─ 사용→ InvoiceService.issue_invoice()
-                                       └─ 멱등 보장→ Redis SETNX  key=idem:invoice:{sub_id}:{period}
-                                       └─ 쓰기→ Invoice 모델       ← migration 0042가 idempotency_key 컬럼 추가
-   (근거: ADR-017,  사고 발단: Slack #billing-incidents 2025-11)
-```
-
-이건 **그래프 순회**입니다. 그런데 RAG의 검색 단위는 "독립된 청크"라서, `renew_subscription` 청크를 찾아도 거기서 **`issue_invoice_task`로 한 발 더 건너뛸 수단이 없습니다.** 벡터 유사도는 "renew와 의미가 비슷한 것"을 줄 뿐, "renew가 **호출하는** 것"을 주지 못합니다. 결국 Agent는 조각만 받고 관계는 매 턴 코드에서 다시 추론합니다.
-
-⚠️ **함정:** "임베딩을 더 좋게 / 청크를 더 크게 / k를 더 크게" 튜닝해도 이 문제는 안 풀립니다. 본질이 **유사도 검색 ≠ 관계 순회**이기 때문입니다. (이래서 GraphRAG 같은 접근이 나왔고, LLM Wiki는 그 "관계"를 **1급 시민**으로 끌어올립니다 — Section 7.)
-
-### 1-4. Long Context의 한계 — "전부 넣기"는 답이 아니다
-
-"그럼 1M 컨텍스트에 레포 전체를 넣자"는 유혹이 있습니다. `acme-billing`은 작아서 가능할 수도 있죠. 하지만 (1) 모노레포(Section 14)는 수백만 줄이라 애초에 안 들어가고, (2) 들어가도 매 턴 풀 비용이며, (3) Lost-in-the-middle로 정확도가 오히려 떨어지고, (4) **모델이 매번 같은 통찰을 재유도**합니다 — "아, 인보이스는 멱등하구나"를 세션마다 처음부터 깨닫습니다.
-
-📌 핵심: 필요한 건 "원문을 더 많이"가 아니라 **"이미 소화된 지식을 압축된 형태로"**. 이것이 Knowledge Compression(Section 2)이고, 프롬프트 캐싱과 결합하면 비용까지 잡힙니다(Section 9·16).
-
-### 1-5. Agent 시대의 Knowledge Problem — 문제의 본질이 바뀌었다
-
-RAG는 **"사람이 한 번 질문 → 한 번 답"** 을 위해 설계됐습니다. 그런데 코딩 에이전트의 작업 양상은 다릅니다.
-
-| | 사람 Q&A (RAG가 가정한 세계) | 코딩 에이전트 (실제 세계) |
-|---|---|---|
-| 턴 수 | 1~2턴 | 수십~수백 턴 |
-| 같은 지식 재사용 | 거의 없음 | **매 세션·매 에이전트가 반복** |
-| 필요한 것 | "관련 문단" | "정본 사실 + 관계 + 출처" |
-| 비용 구조 | 질문당 1회 | 누적·반복 → 폭증 |
-| 답의 일관성 | 그때그때 | **팀 전체·시간에 걸쳐 일관**되어야 |
-
-📌 **결론(왜 RAG로 부족한가):** RAG는 *검색* 문제를 풀지만, Agent 시대의 진짜 문제는 *지식 관리(knowledge management)* 입니다. 한 번 소화한 지식을 **정본화하고, 관계를 박제하고, 중복을 제거하고, 최신으로 유지하고, 모든 에이전트가 싸게 재사용**하게 만드는 것 — RAG에는 이 레이어가 통째로 빠져 있습니다. LLM Wiki는 바로 그 빠진 레이어입니다.
+⚠️ 오해 금지: **Graph RAG/RAG가 LLM Wiki보다 항상 못한 게 아닙니다.** 수백만 문서, 매일 바뀌는 코퍼스, 다수 사용자 동시 접근, 밀리초 단위 지연이 필요한 곳에서는 **RAG 계열이 이깁니다.** LLM Wiki는 "사람이 큐레이션하며 꾸준히 쌓는, 비교적 작은(수십~수백 source) 지식 베이스"에서 빛납니다. 정확한 손익분기와 비교는 **Section 8**에서 정량적으로 다룹니다. 지금은 "Graph RAG로는 *축적*이 안 됐다"는 문제의식만 챙기면 됩니다.
 
 ### 🧭 Section 1 한 줄 요약
 
-> RAG는 *청크를 검색*한다. 하지만 Agent 시대에는 **Context Explosion·Duplication·Fragmented Retrieval·Long-context 한계**가 한꺼번에 터진다. 본질은 검색이 아니라 **지식 관리** — 소화된 지식을 정본화·관계화·정제·최신화해서 모든 에이전트가 싸게 재사용하게 만드는 계층이 필요하다.
+> Graph RAG는 (1) **구축·유지보수 공수가 크고**(추출·정규화·드리프트), (2) **매 쿼리마다 지식을 재발견**할 뿐 *축적되지 않는다*. 우리가 원한 건 검색이 아니라 **점점 두꺼워지는 정리본**이다 — 단, 대규모·고변동·다중사용자에서는 여전히 RAG가 이긴다(Section 8).
 
 ---
 
-<a id="section-2"></a>
-## Section 2. LLM Wiki란 무엇인가 — "AI가 읽기 위한 지식 계층"
+<a id="sec2"></a>
+## Section 2. LLM Wiki란 무엇인가 — 개념
 
 ### 2-1. 한 문장 정의
 
-> 📌 **LLM Wiki** = 원천 자료(Raw)를 **AI가 읽기 좋게 소화·압축·구조화한, 정본(canonical)·무중복·상호연결된 지식 계층.** 사람이 보조로 읽을 수 있지만, **1차 독자는 Agent**다.
+> 📌 **LLM Wiki** = 원천 자료(raw)를 LLM이 한 번 읽고 **상호 연결된 마크다운 위키로 정리·축적**해 두고, 질문이 오면 *원문이 아니라 그 위키*를 읽어 답하는 패턴. 위키는 **쓰기를 LLM이, 읽기를 사람과 에이전트가** 한다.
 
-핵심은 강조점입니다. 위키피디아는 *사람이 읽기 위한* 지식 계층입니다. LLM Wiki는 *Agent가 읽기 위한* 지식 계층입니다. 그래서 형식이 다릅니다 — 장황한 산문 대신 **정본 진술 + 명시적 관계 링크 + 출처(provenance)**, 그리고 그 위에 **기계가 순회·검증할 수 있는 그래프(Schema)**.
+핵심 전환은 **시점(timing)**입니다.
 
-### 2-2. 세 가지 핵심 개념
+```
+[ RAG / Graph RAG ]   질문이 올 때마다  →  원문 검색 → 합성 → 답 (그리고 버림)
+                       "합성(synthesis)을 매번 한다"
 
-**① Knowledge Compression (지식 압축)**
-
-같은 사실의 N벌(코드+ADR+Slack+Notion)을 **한 페이지로 압축**합니다. RAG가 8청크 3,200토큰으로 답하던 것을, Wiki는 1페이지 ~400토큰으로 답합니다.
-
-> 💡 **비유 — 소스 코드 vs 빌드 산출물.** Raw 자료는 *소스*입니다. Wiki는 그 소스를 "지식 컴파일러(=Agent + 사람 리뷰)"로 빌드한 **산출물**입니다. 손으로 쓰는 게 아니라 **재생성(regenerate)됩니다.** 소스가 바뀌면 다시 빌드하죠(Section 12). 이 "지식은 빌드된다"는 관점이 이 문서 전체의 멘탈 모델입니다.
-
-**② Knowledge Distillation (지식 증류)**
-
-압축이 "양을 줄이는 것"이라면 증류는 **"모순을 해소하고 정본을 세우는 것"** 입니다. ADR-017 초안(폐기)과 최종안이 충돌하면 → "현재 채택안은 Redis SETNX"라고 한 줄로 못 박고, 폐기안은 `superseded_by`로 표시합니다. Notion의 옛 "BackgroundTasks" 설명은 → "ADR-021로 Celery 이전됨, 옛 설명 폐기"로 갱신합니다.
-
-**③ Structured Knowledge (구조화된 지식)**
-
-Wiki는 자유 텍스트가 아니라 **구조**를 가집니다. 각 페이지는 타입(Concept/Knowledge), 정본 진술, **명시적 관계 링크(`[[...]]`)**, 출처 메타데이터를 가집니다. 이 구조의 *기계 표현*이 Schema Layer(Section 7)이고, 덕분에 **관계 순회**와 **Lint**(품질 자동 검증)가 가능해집니다.
-
-### 2-3. `acme-billing`의 Wiki 페이지 — 실제 모양
-
-말로만 하면 추상적이니, 관통 예시의 **정본 Concept 페이지**를 미리 봅니다. (Section 6에서 형식을 자세히 다룹니다.)
-
-> 💻 `wiki/concepts/idempotent-invoice-issuance.md`
-
-```markdown
----
-id: concept.idempotent-invoice-issuance
-type: concept
-title: 멱등 인보이스 발행 (Idempotent Invoice Issuance)
-status: canonical
-owners: [team-billing]
-last_verified: 2026-06-10
-sources:                      # provenance — Raw로 역추적
-  - code: app/services/invoice.py#issue_invoice
-  - adr: docs/adr/ADR-017-idempotent-invoice-issuance.md
-  - incident: slack://C0BILL/p1699...   # 2025-11 중복 인보이스 사고
-related:                      # 관계 = 1급 시민
-  - implemented_by: "[[InvoiceService]]"
-  - triggered_by: "[[renew_subscription]]"
-  - guarded_by: "[[redis-idempotency-key]]"
-  - persisted_to: "[[Invoice]]"
-  - superseded_decision: "[[ADR-017-draft-v1]]"   # DB unique 제약 안 (폐기)
----
-
-## 정본 진술 (Canonical)
-구독 갱신·웹훅 재시도로 `issue_invoice`가 중복 호출돼도 인보이스는 **기간(period)당 1건**만 생성된다.
-멱등성은 **Redis `SETNX key=idem:invoice:{subscription_id}:{period}` (TTL 24h)** 로 보장한다.
-DB unique 제약(초안 v1)은 경합 시 500을 유발해 **폐기**됐다(ADR-017).
-
-## 동작 (요약)
-1. `renew_subscription` → `SubscriptionService.renew()` → Celery `issue_invoice_task` enqueue (ADR-021)
-2. 태스크가 `InvoiceService.issue_invoice(sub_id, period)` 호출
-3. `SETNX` 성공 시에만 `Invoice` 생성. 실패(=이미 발행)면 no-op 반환.
-
-## 주의 (Gotchas)
-- `period`는 **UTC 월초** 기준. 타임존 버그 주의.
-- BackgroundTasks 시절 설명(Notion 온보딩)은 **틀림** → Celery로 이전됨.
+[ LLM Wiki ]          source가 들어올 때 →  한 번 합성 → 위키에 영구 저장
+                       질문이 올 때       →  이미 합성된 위키를 읽고 답
+                       "합성을 한 번만, 질문은 그 산출물을 재사용한다"
 ```
 
-📌 한 페이지에 **정본 사실 + 관계 + 출처 + 함정**이 다 있습니다. Agent가 이 페이지 하나(~400토큰)만 읽으면, RAG가 8청크로 헤매던 답을 **모순 없이, 출처와 함께** 즉시 얻습니다.
+💡 **비유 — 인터프리터 vs 컴파일러.** RAG는 매 질문을 *인터프리트*합니다 (실행할 때마다 원문을 다시 파싱·해석). LLM Wiki는 지식을 미리 *컴파일*해 둡니다 — source가 들어오는 순간 "지식 컴파일"이 일어나 위키라는 **산출물(artifact)**이 남고, 질문은 그 산출물을 실행만 합니다. 그래서 위키는 **빌드되는 것**이지 손으로 쓰는 게 아니고, source가 바뀌면 다시 빌드합니다.
 
-### 2-4. 이건 새로운 게 아니다 — 이미 쓰고 있는 패턴의 일반화
+### 2-2. 왜 이게 "축적"을 만드나 — 3가지 효과
 
-LLM Wiki는 갑자기 등장한 단일 제품이 아니라, 업계에서 따로따로 자라던 패턴을 **하나의 아키텍처로 종합**한 것입니다. 이미 익숙할 실제 사례들:
+1. **압축(compression).** 같은 사실의 여러 출처(기사 5건)가 **한 페이지**로 합쳐집니다. 질문 시 수십 청크가 아니라 정리된 1~수 페이지만 읽습니다.
+2. **연결(cross-reference).** 정리하면서 `[[SK하이닉스]]`, `[[HBM]]` 같은 **위키링크**를 답니다. 관계가 글을 쓰는 *부산물*로 생깁니다 — Graph RAG처럼 별도 추출 파이프라인이 필요 없습니다. (이 링크들이 곧 그래프이고, Obsidian이 그려 줍니다 → Section 6.)
+3. **진화(evolution).** 새 source가 기존 페이지와 모순되면, 그 자리에서 **기존 페이지를 갱신**합니다. "삼성 1위"가 "HBM은 SK 주도"로 바뀌면 페이지가 고쳐지고, 옛 사실은 맥락으로 남습니다. 시스템이 *시간에 따라 똑똑해집니다.*
 
-| 실제 사례 | LLM Wiki의 어느 조각인가 |
-|---|---|
-| **`CLAUDE.md` / `AGENTS.md`** (에이전트가 읽는 레포 가이드) | 수작업 Wiki 페이지의 원시 형태 |
-| **Cursor Rules / `.cursor/rules`** | 도메인별 정본 지식 주입 |
-| **DeepWiki류 "레포 → 위키 자동 생성"** | Agent-Driven Construction (Section 11) |
-| **Microsoft GraphRAG** (엔티티·관계 그래프 + 커뮤니티 요약) | Schema Layer + 관계 순회 (Section 7·9) |
-| **Anthropic Skills** (필요 시 로드되는 전문 지식 폴더) | 점진적 공개(progressive disclosure)로 Wiki 일부만 로드 |
+### 2-3. 구조 한눈에 — 3 레이어 × 3 동작
 
-📌 즉, 여러분이 `CLAUDE.md`를 손으로 쓰고 있었다면 이미 LLM Wiki의 *맛보기*를 한 겁니다. 이 문서는 그것을 **Agent가 자동 생성·검증·유지하는 시스템**으로 끌어올립니다.
+LLM Wiki의 전부는 이 그림 하나에 들어갑니다.
+
+```
+        ┌──────────────────────────────────────────────────────────┐
+ 사람이  │  RAW  (불변·원천)   기사 · 리포트 · 공시 · PDF · 이미지     │  "진실의 출처"
+ 큐레이션│  raw/ 폴더에 그대로 저장. LLM은 읽기만, 절대 수정 안 함.    │
+        └───────────────────────────┬──────────────────────────────┘
+                                    │
+                       ┌────────────┴────────────┐
+                       │      INGEST (동작1)       │  source 1건 → 위키 10~15 페이지를 만들고/고침
+                       └────────────┬────────────┘
+                                    ▼
+        ┌──────────────────────────────────────────────────────────┐
+ LLM이  │  WIKI  (정리·축적)   concepts/ · entities/ · sources/        │  "사람·에이전트가 읽는 정리본"
+ 작성   │  + index.md(목차) + log.md(이력).  [[위키링크]]로 상호 연결. │
+        └───────────────────────────┬──────────────────────────────┘
+                       ┌────────────┴────────────┐        ┌──────────────────────────┐
+                       │      QUERY (동작2)        │        │   SCHEMA (CLAUDE.md)       │
+                       │  위키를 읽고 답 → 좋은 답은│◄───────│  레이아웃·규칙·3동작 절차를 │
+                       │  새 페이지로 파일링        │  규율   │  LLM에게 지시하는 "운영 헌법"│
+                       └────────────┬────────────┘        └──────────────────────────┘
+                       ┌────────────┴────────────┐
+                       │      LINT (동작3)         │  모순·낡은 사실·고아 페이지·끊긴 링크·공백을 점검
+                       └─────────────────────────┘
+```
+
+📌 **세 레이어:** **Raw**(불변 원천) → **Wiki**(LLM이 쓰는 정리본) → **Schema**(LLM에게 행동 규칙을 주는 `CLAUDE.md`).
+📌 **세 동작:** **Ingest**(넣기) · **Query**(묻기) · **Lint**(점검하기).
+
+### 2-4. 사실 여러분은 이미 그 맛을 봤다 — `CLAUDE.md`
+
+Claude Code 사용자라면 이미 `CLAUDE.md`를 손으로 써 봤을 겁니다. "이 레포는 이렇게 동작하고, 이런 규칙을 지켜라"라고 에이전트에게 일러두는 그 파일. **그게 바로 사람이 손으로 쓴 위키 페이지 + 스키마의 원시 형태**입니다.
+
+LLM Wiki는 그것을 **시스템으로 끌어올립니다.** `CLAUDE.md`를 *스키마(운영 규칙)*로 정식화하고, 그 아래 `wiki/`에 **에이전트가 스스로 생성·갱신·검증하는** 페이지들을 쌓습니다. 즉 "내가 손으로 채우던 CLAUDE.md"가 "에이전트가 ingest로 채우고 lint로 청소하는 wiki"가 됩니다.
+
+> 카파시 본인도 강조합니다: *"Everything mentioned above is optional and modular — pick what's useful, ignore what isn't."* (전부 선택·모듈식이다. 쓸 것만 쓰고 나머지는 무시하라.) — 이건 무거운 프레임워크가 아니라 **폴더 몇 개와 규칙 한 장으로 시작하는 패턴**입니다.
 
 ### 🧭 Section 2 한 줄 요약
 
-> LLM Wiki는 **"AI가 읽기 위한" 정본·무중복·구조화된 지식 계층**이다. 세 기둥은 **압축(양↓)·증류(모순 해소·정본화)·구조화(관계+검증 가능)**. 멘탈 모델은 *"지식은 손으로 쓰는 게 아니라 빌드되는 산출물"*. `CLAUDE.md`·GraphRAG·DeepWiki·Skills가 그 조각들이다.
+> LLM Wiki는 **"합성을 매번"이 아니라 "합성을 한 번, 산출물을 재사용"** 하는 패턴이다 (인터프리터→컴파일러). source가 들어올 때 LLM이 **압축·연결·진화**시켜 위키에 영구 저장하고, 질문은 그 위키를 읽는다. 구성은 **Raw/Wiki/Schema 3계층 + Ingest/Query/Lint 3동작**. 여러분이 쓰던 `CLAUDE.md`가 그 씨앗이다.
 
 ---
 
-<a id="section-3"></a>
-## Section 3. RAG vs LLM Wiki — 상세 비교
+<a id="sec3"></a>
+## Section 3. 3계층 — Raw / Wiki / Schema (실제 문서로)
 
-둘은 **경쟁이 아니라 계층**입니다. LLM Wiki는 종종 **검색에 RAG를 그대로 씁니다** — 단, "청크"가 아니라 "정본 Wiki 페이지"를 검색 대상으로 삼고, 그 위에 "관계 순회"를 얹습니다. 차이를 항목별로 못 박습니다.
+말로만 하면 추상적입니다. **실물 문서**로 봅니다. 먼저 전체 폴더 구조부터.
 
-### 3-1. 핵심 비교표
-
-| 항목 | RAG | LLM Wiki |
-|---|---|---|
-| **저장 단위** | 원문 청크 (chunk) | **정본 지식 페이지** + 그래프 노드/엣지 |
-| **검색 방식** | 벡터 유사도 Top-K | 페이지 하이브리드 검색 **+ Schema 그래프 순회** |
-| **Context 사용량** | 중복 청크 다수 → 큼, 턴마다 재인출 | 정제된 1~수 페이지 → 작음, **캐시 친화적** |
-| **중복 제거** | 없음 (동일 사실 N벌 그대로) | **Dedup/Merge가 1급 단계** (Section 8) |
-| **관계 표현** | 없음 (청크는 독립) | **명시적 typed 관계** (calls/implements/supersedes…) |
-| **유지보수** | 문서 추가/삭제 = 재인덱싱 | **Lint·증분 갱신·소유권**으로 운영 (Section 10·12·18) |
-| **Agent 활용성** | 조각 제공, 관계는 매번 재추론 | 정본+관계 제공 → **재추론 불필요, 일관** |
-| **Knowledge Evolution** | 정본/폐기 개념 없음, 모순 누적 | **status(canonical/deprecated/superseded)로 진화 관리** |
-| **운영 비용** | 토큰 폭증, 세션마다 반복 | 압축+캐시로 ↓, 단 **빌드/Lint 비용은 새로 발생** |
-
-⚠️ 공짜가 아닙니다. LLM Wiki는 RAG에 없던 **빌드·검증·거버넌스 비용**을 새로 만듭니다. 작은 1회성 Q&A엔 과합니다. 손익분기는 **"같은 지식을 여러 에이전트가 장기간 반복 사용"** 할 때 넘어갑니다 (Section 18에서 정량화).
-
-### 3-2. 같은 질문, 두 시스템의 답
-
-🧵 관통 질문에 대한 **RAG의 답** (앞서 본 8청크 기반):
-
-> "인보이스는 BackgroundTasks로 발행되며… DB unique 제약으로 중복을 막습니다."
-> → ❌ **틀림.** 폐기된 초안(②)과 옛 Notion(④)을 근거로 삼음. 출처 불명확. 3,200토큰 소모.
-
-같은 질문에 대한 **LLM Wiki의 답** (Section 2-3 페이지 + 그래프 순회):
-
-> "구독 갱신 시 `renew_subscription → SubscriptionService.renew → Celery issue_invoice_task → InvoiceService.issue_invoice` 경로로 발행되며, 중복은 **Redis `SETNX idem:invoice:{sub_id}:{period}`** 로 막습니다(ADR-017). DB unique 제약은 경합 500 때문에 폐기됐습니다. period는 UTC 월초 기준."
-> → ✅ **정확·출처 포함·관계 포함.** ~450토큰. 다음 에이전트도 같은 답.
-
-### 3-3. 결정 가이드 — 언제 무엇을
+> 📄 워크스페이스 레이아웃 — `semi-wiki/` (여러분이 만들 폴더)
 
 ```
-질문: 내 상황은?
-
- ├─ 1회성/저빈도 Q&A, 문서가 자주 안 바뀜 ─────────────► RAG로 충분
- │
- ├─ 코딩 에이전트가 같은 코드베이스를 장기 반복 작업 ───► LLM Wiki (RAG를 검색 엔진으로 내장)
- │     (예: acme-billing 유지보수, 모노레포)
- │
- ├─ "관계/의존성/영향범위"를 따라가야 답이 됨 ──────────► LLM Wiki (Schema 순회 필수)
- │
- └─ 정확성·출처·시간에 걸친 일관성이 핵심 ──────────────► LLM Wiki
+semi-wiki/
+├── CLAUDE.md                 # ← SCHEMA: 운영 규칙(레이아웃·작성 규약·3동작 절차)
+├── raw/                      # ← RAW: 불변 원천. LLM은 읽기만.
+│   ├── articles/             #     뉴스 기사 (md로 저장)
+│   ├── reports/              #     증권사·시장조사 리포트
+│   ├── filings/              #     공시·실적 발표
+│   └── images/               #     차트·인포그래픽 캡처
+├── wiki/                     # ← WIKI: LLM이 쓰는 정리본. 사람·에이전트가 읽음.
+│   ├── index.md              #     모든 페이지 목차(매 ingest마다 갱신)
+│   ├── log.md                #     append-only 이력(ingest/query/lint 기록)
+│   ├── overview.md           #     이 주제 전체 한 장 요약
+│   ├── entities/             #     구체 실체: 기업·제품 (sk-hynix.md, hbm3e.md …)
+│   ├── concepts/             #     개념·기술: hbm.md, foundry.md …
+│   ├── sources/              #     각 raw 1건의 요약 페이지
+│   └── comparisons/          #     비교 페이지: sk-hynix-vs-samsung-hbm.md …
+├── outputs/                  # ← 날짜별 산출물: lint 리포트, 요약본 등
+│   └── lint-2026-06-20.md
+└── .gitignore
 ```
 
-📌 실무 정석: **"검색은 RAG, 지식 관리는 Wiki."** Wiki Layer 검색에 임베딩/벡터DB를 그대로 재사용하되, 인덱싱 대상을 *청크 → 정본 페이지*로 바꾸고 *관계 순회*를 얹는 것 — 이게 가장 흔한 실전 구성입니다.
+> 💡 **비유 — 원본 책 / 백과사전 항목 / 도서관 운영 규정.**
+> **Raw**는 서가의 *원본 책들*(낡고 중복되고 모순됨, 절대 안 고침). **Wiki**는 사서가 다 읽고 정리한 *백과사전 항목*(사람·에이전트가 펼쳐 읽음). **Schema(CLAUDE.md)**는 *도서관 운영 규정*("항목은 이런 양식으로, 상호참조는 이렇게 달아라").
+
+이제 각 레이어를 실물로 봅니다.
+
+### 3-1. Raw Layer — 불변의 원천
+
+Raw는 **여러분이 큐레이션**합니다. 기사를 읽다가 "이건 남길 가치가 있다" 싶으면 `raw/`에 저장합니다. 형식은 무엇이든 되지만, 마크다운이 가장 다루기 좋습니다. **두 규칙:** ① 절대 수정하지 않는다(불변), ② 모든 wiki 진술은 raw로 역추적된다(출처).
+
+> 📄 `raw/articles/2023-08-sk-hynix-nvidia-hbm3.md` — 분석가가 저장한 실제 raw 1건
+
+```markdown
+---
+source_url: https://example.com/news/sk-hynix-nvidia-hbm3
+captured: 2023-08-21
+publisher: 비즈니스와이어 (번역)
+---
+
+# SK하이닉스, 엔비디아 AI GPU에 HBM3 사실상 단독 공급
+
+SK하이닉스가 엔비디아의 H100 GPU에 탑재되는 HBM3(고대역폭 메모리)를
+사실상 단독 공급하고 있는 것으로 확인됐다. HBM3는 D램을 수직으로 쌓아
+대역폭을 끌어올린 메모리로, 생성형 AI 학습에 필요한 막대한 데이터 처리량을
+감당하는 핵심 부품이다.
+
+업계에 따르면 삼성전자와 마이크론도 HBM 양산을 추진 중이나, 엔비디아
+인증과 수율 면에서 SK하이닉스가 1년 이상 앞서 있다는 평가다. (후략)
+```
+
+📌 보다시피 raw는 **가공 전 원문**입니다. 중복·편향·시점이 섞여 있고, 1년 뒤면 일부는 낡습니다. 그래서 **고치지 않고 그대로 둡니다** — 진실의 스냅샷이니까. 정리는 위층에서 합니다.
+
+🔧 **실무 팁:** raw 파일명에 **날짜**를 넣으세요(`2023-08-...`). 나중에 lint가 "어느 사실이 더 최신인가"를 판단하고, query가 "시간에 따른 변화"를 서술할 때 결정적입니다.
+
+### 3-2. Wiki Layer — LLM이 쓰는 정리본
+
+Wiki는 **LLM이 ingest로 생성·갱신**합니다. 페이지 종류는 크게 셋:
+
+| 종류 | 폴더 | 담는 것 | 예 |
+|---|---|---|---|
+| **Entity** | `entities/` | 구체적 실체 | `sk-hynix`, `nvidia`, `hbm3e`, `h100` |
+| **Concept** | `concepts/` | 개념·기술·패턴 | `hbm`, `foundry`, `process-node` |
+| **Source summary** | `sources/` | raw 1건의 요약 | `2023-08-sk-hynix-nvidia-hbm3` |
+
+모든 페이지는 **YAML frontmatter + 본문 + `[[위키링크]]`**를 갖습니다.
+
+> 📄 `wiki/entities/sk-hynix.md` — ingest로 생성된 entity 페이지 (기사 여러 건이 합쳐진 결과)
+
+```markdown
+---
+title: SK하이닉스
+type: entity
+entity_kind: company
+sources:
+  - raw/articles/2023-08-sk-hynix-nvidia-hbm3.md
+  - raw/articles/2025-q2-hbm-market-share.md
+  - raw/filings/2026-01-sk-hynix-fy2025-earnings.md
+related:
+  - "[[nvidia]]"
+  - "[[hbm]]"
+  - "[[samsung-electronics]]"
+  - "[[micron]]"
+created: 2026-06-01
+updated: 2026-06-18
+confidence: high
+---
+
+# SK하이닉스 (SK hynix)
+
+한국의 메모리 반도체 기업. **HBM(고대역폭 메모리) 시장의 선두 주자**로,
+AI 가속기용 메모리 공급에서 사실상 주도권을 쥐고 있다.
+
+## AI 메모리에서의 위치
+- 엔비디아 [[h100]](HBM3)·H200([[hbm3e]]) 등 AI GPU용 HBM을 **초기부터 사실상 단독에 가깝게 공급**
+  (인증·수율에서 [[samsung-electronics]]·[[micron]]보다 앞섬). → [[sk-hynix-vs-samsung-hbm]]
+- 2025년 2분기 기준 **HBM 점유율 약 62%**로 1위
+  ([[micron]] 약 21%, [[samsung-electronics]] 약 17%).
+- 차세대 [[hbm4]]는 엔비디아 차세대 GPU(Rubin) 플랫폼 탑재로 이어짐.
+
+## 재무 신호
+- **2025 회계연도, 연간 영업이익에서 [[samsung-electronics]]를 사상 처음 추월** (2026-01 발표).
+  AI 메모리 호황이 메모리 업계 서열을 재편한 상징적 사건.
+
+## 관계 (요약)
+- 공급 → [[nvidia]] | 경쟁 → [[samsung-electronics]], [[micron]] | 핵심제품 → [[hbm3e]], [[hbm4]]
+
+> 출처: sources/ 폴더의 각 source 페이지 및 frontmatter `sources:` 참조.
+```
+
+📌 entity 페이지의 본질: **"원문을 다시 안 읽어도 이 실체를 정확히 말할 수 있을 만큼"**의 정리된 사실 + 관계([[링크]]) + 출처. RAG가 기사 5건 청크로 헤매던 걸, 이 한 페이지(~400토큰)가 **모순 없이, 출처와 함께** 대신합니다.
+
+> 📄 `wiki/concepts/hbm.md` — 개념 페이지 (기술 해설형 raw들이 합쳐진 결과)
+
+```markdown
+---
+title: HBM (고대역폭 메모리)
+type: concept
+sources:
+  - raw/articles/2023-08-sk-hynix-nvidia-hbm3.md
+  - raw/reports/2026-hbm-roadmap.md
+related:
+  - "[[dram]]"
+  - "[[hbm3e]]"
+  - "[[hbm4]]"
+  - "[[nvidia]]"
+created: 2026-06-01
+updated: 2026-06-12
+confidence: high
+---
+
+# HBM (High Bandwidth Memory)
+
+[[dram]] 다이를 수직으로 쌓고 TSV(실리콘 관통전극)로 연결해 **대역폭을 극대화**한
+메모리. AI 가속기가 요구하는 막대한 데이터 처리량의 병목을 푸는 핵심 부품.
+
+## 세대
+- HBM3 → **HBM3E**([[hbm3e]]) → **HBM4**([[hbm4]]) 순으로 진화. 세대마다 대역폭·적층단수↑.
+
+## 왜 중요한가
+- 엔비디아 [[h100]]·H200·차세대 GPU의 성능이 사실상 HBM 공급에 묶여 있음.
+- 공급은 **3사 과점**: [[sk-hynix]] · [[samsung-electronics]] · [[micron]].
+```
+
+여기서 **관계가 어떻게 지식을 묶는지** 보세요. `hbm` → `[[hbm3e]]` → (그 페이지에서) `[[sk-hynix]]` → `[[nvidia]]`. 관통 질문의 답이 **링크를 한두 홉 따라가면** 나옵니다. 그리고 이 링크들은 **글을 쓰다가 자연히 생긴 것**이지, Graph RAG처럼 별도 추출 작업으로 만든 게 아닙니다.
+
+### 3-3. index.md 와 log.md — 위키를 운영 가능하게 만드는 두 파일
+
+위키가 커지면 "무엇이 있는지" 한눈에 보는 목차와, "언제 무엇을 했는지" 이력이 필요합니다.
+
+> 📄 `wiki/index.md` (발췌) — 매 ingest마다 갱신되는 목차
+
+```markdown
+# Index — 반도체/AI 메모리 위키
+
+_마지막 갱신: 2026-06-18 · 총 23 페이지_
+
+## Entities (기업·제품)
+- [[sk-hynix]] — HBM 선두, 엔비디아 주 공급사 · `confidence: high` · upd 2026-06-18
+- [[samsung-electronics]] — 메모리 종합 1위, HBM 추격 · `high` · upd 2026-06-16
+- [[micron]] — HBM 3위→2위 부상 · `medium` · upd 2026-06-10
+- [[nvidia]] — AI 가속기, HBM 최대 수요처 · `high` · upd 2026-06-12
+
+## Concepts (개념·기술)
+- [[hbm]] — 고대역폭 메모리 개요 · `high`
+- [[hbm3e]] — 현 주력 세대 상세 · `high`
+
+## Comparisons
+- [[sk-hynix-vs-samsung-hbm]] — HBM 주도권 비교 · `high`
+
+## ⚠️ 점검 필요 (lint 플래그)
+- [[micron]] confidence=medium — 점유율 수치 출처 1건뿐, 보강 필요
+```
+
+> 📄 `wiki/log.md` (발췌) — append-only 이력
+
+```markdown
+## 2026-06-18 · INGEST
+- raw: filings/2026-01-sk-hynix-fy2025-earnings.md
+- 갱신: [[sk-hynix]](영업이익 추월 추가), [[samsung-electronics]](서열 변화 반영)
+- 신규: [[sk-hynix-vs-samsung-hbm]]
+- 발견: 2023 기사의 "삼성 메모리 부동의 1위" 진술과 충돌 → lint 대상으로 표시
+
+## 2026-06-20 · LINT
+- 모순 1건 해소: [[samsung-electronics]] "부동의 1위"→"DRAM 종합 선두이나 HBM은 SK 주도"로 수정
+- 고아 페이지 0 · 끊긴 링크 1 ([[hbm4]] 미생성) → 생성 예정
+```
+
+📌 `index.md`는 query의 **진입점**입니다 (에이전트가 먼저 읽고 어느 페이지로 갈지 정함). `log.md`는 **감사 추적(audit trail)**이자, 위키가 "운영되는 시스템"이라는 증거입니다.
+
+### 3-4. Schema Layer — `CLAUDE.md`, 위키의 운영 헌법
+
+Schema는 **LLM에게 "이 위키를 어떻게 다뤄라"를 지시하는 단 하나의 설정 문서**입니다. Claude Code에서는 자연스럽게 `CLAUDE.md`가 그 역할을 합니다 (에이전트가 자동으로 읽으니까). 여기에 **레이아웃 + 작성 규약(frontmatter·링크·명명) + 3동작 절차**를 박아 둡니다.
+
+> 📄 `semi-wiki/CLAUDE.md` — 스키마 (핵심 발췌)
+
+```markdown
+# 반도체/AI 메모리 지식 위키 — 운영 규칙 (Schema)
+
+너는 이 위키의 **유일한 작성자**다. 사람은 raw를 큐레이션하고 질문하며, 너는
+raw를 읽어 wiki/를 만들고 유지한다. raw/는 **절대 수정하지 마라.**
+
+## 디렉터리
+- raw/        불변 원천 (읽기 전용)
+- wiki/       네가 쓰는 정리본 (entities/ concepts/ sources/ comparisons/)
+- wiki/index.md  전체 목차 — 모든 ingest 후 갱신
+- wiki/log.md    append-only 이력 — 모든 ingest/query/lint 기록
+- outputs/    날짜별 리포트(lint 등)
+
+## 페이지 작성 규약
+- 파일명: kebab-case (예: sk-hynix.md, hbm3e.md)
+- 모든 페이지는 YAML frontmatter 필수:
+  title / type(entity|concept|source-summary|comparison) /
+  sources(raw 경로 목록) / related([[wikilink]] 목록) /
+  created / updated / confidence(high|medium|low)
+- 본문에서 다른 페이지를 처음 언급할 때 반드시 [[wikilink]]로 연결
+- 모든 사실은 frontmatter sources의 raw로 역추적 가능해야 한다. 출처 없는 단정 금지.
+
+## 동작 1 — INGEST (사용자가 raw를 추가하고 "ingest"라고 하면)
+1. 새 raw를 읽고 핵심 takeaway를 사용자에게 먼저 요약·확인
+2. sources/에 해당 raw의 요약 페이지 생성
+3. 관련 entity/concept 페이지를 갱신하거나 신규 생성 (보통 10~15개를 건드림)
+4. 새 사실이 기존 페이지와 충돌하면 → 기존 페이지를 갱신하고 충돌을 log에 기록
+5. index.md 갱신, log.md에 ingest 항목 추가
+
+## 동작 2 — QUERY (사용자가 질문하면)
+1. 먼저 index.md를 읽어 관련 페이지를 고른다
+2. 해당 페이지들(+ [[링크]]로 한두 홉)을 읽고 답을 합성한다
+3. 답에는 [[wikilink]]로 근거 페이지를 표기한다 (raw 원문 재검색 금지 — 위키로 답)
+4. 새롭고 재사용 가치가 큰 답이면 comparisons/ 등에 새 페이지로 저장 제안
+
+## 동작 3 — LINT (사용자가 "lint"라고 하면)
+모든 wiki 페이지를 훑어 다음을 점검하고 outputs/lint-YYYY-MM-DD.md에 보고:
+- 모순(두 페이지가 충돌) · 낡은 사실(raw 날짜 대비 오래된 단정)
+- 고아 페이지(들어오는 링크 없음) · 끊긴 링크(존재하지 않는 [[페이지]])
+- 공백(자주 언급되나 페이지 없는 개념) · 저신뢰(confidence=low) 항목
+가능한 수정은 제안과 함께 적용하고, 애매하면 사람 확인을 요청한다.
+```
+
+📌 이 한 장이 **위키의 일관성을 보장**합니다. 새 세션의 에이전트도 이걸 읽고 *똑같은 규약*으로 행동합니다. 카파시는 이 스키마를 **사람과 LLM이 함께 시간을 두고 다듬는다(co-evolve)**고 했습니다 — 운영하다 규칙이 부족하면 여기에 한 줄 더 추가하는 식으로요.
 
 ### 🧭 Section 3 한 줄 요약
 
-> RAG와 Wiki는 경쟁이 아니라 **계층**이다. RAG=청크 유사도 검색, Wiki=정본 페이지+관계 그래프. **중복 제거·관계·진화 관리·캐시 친화성**에서 Wiki가 이기지만, 빌드·Lint·거버넌스 비용을 새로 진다. 손익분기는 "여러 에이전트의 장기 반복 사용".
+> **Raw**(불변 원천, 날짜 박아 그대로 저장) → **Wiki**(LLM이 쓰는 entity/concept/source 페이지, frontmatter+`[[링크]]`, +index/log) → **Schema**(`CLAUDE.md`: 레이아웃·작성규약·3동작 절차). 관계는 글을 쓰다가 `[[링크]]`로 *부산물*처럼 생기고, 모든 진술은 raw로 역추적된다.
 
 ---
-<a id="section-4"></a>
-## Section 4. Core Architecture — Raw ↓ Wiki ↓ Schema (가장 중요)
 
-LLM Wiki의 심장은 **3계층**입니다. 이 그림 하나가 문서 전체의 골격입니다.
+<a id="sec4"></a>
+## Section 4. 3동작 — Ingest / Query / Lint
 
-```
-                    ┌───────────────────────────────────────────────┐
-   사람·도구가 생성  │                  RAW LAYER                     │  "원천 / 진실의 출처"
-   (불변·중복·잡음)  │  코드 · PDF · ADR · GitHub · API Docs · Slack  │  Agent가 읽는 입력
-                    │  · Notion                                      │  (Section 5)
-                    └───────────────────────┬───────────────────────┘
-                                            │  Ingest Pipeline (Section 8)
-                                            │  Extract→Normalize→Merge→Dedup
-                                            ▼
-                    ┌───────────────────────────────────────────────┐
-   Agent가 생성·     │                  WIKI LAYER                    │  "AI가 읽기 위한 산문"
-   사람이 리뷰       │  Concept Page · Knowledge Page                 │  정본·무중복·[[관계링크]]
-   (정본·압축)       │  Canonical 진술 + provenance                   │  (Section 6)
-                    └───────────────────────┬───────────────────────┘
-                                            │  같은 지식의 두 투영(projection)
-                                            │  prose ↔ graph 동기화
-                                            ▼
-                    ┌───────────────────────────────────────────────┐
-   기계가 순회·검증  │                 SCHEMA LAYER                   │  "기계가 읽기 위한 그래프"
-   (그래프·제약)     │  Entity · Relationship · Metadata · Constraint │  순회·Lint·영향분석 가능
-                    │  (JSON / graph)                                │  (Section 7)
-                    └───────────────────────────────────────────────┘
-                                            ▲
-                          Query(9)·Lint(10)가 이 그래프를 사용
-```
+레이어가 *구조*라면, 동작은 *동사*입니다. 위키는 이 셋으로 살아 움직입니다.
 
-> 💡 **비유 — 책 / 백과사전 / 색인 카드.** Raw는 서가의 **원본 책들**(낡고 중복되고 모순됨). Wiki는 사서가 다 읽고 정리한 **백과사전 항목**(사람·AI가 읽음). Schema는 그 항목들을 **색인 카드 + 상호참조 화살표**로 만든 것(기계가 따라감). 같은 지식이지만 **독자가 다르고 형식이 다릅니다.**
+### 4-1. Ingest — "한 source가 10~15 페이지를 건드린다"
 
-### 4-1. 계층별 목적·입력·출력·예시 (관통 예시 기준)
-
-| | **Raw Layer** | **Wiki Layer** | **Schema Layer** |
-|---|---|---|---|
-| **목적** | 진실의 원천 보존 | AI가 읽을 정본 지식 | 기계 순회·검증 |
-| **독자** | (Ingest용) Agent | Agent(주) + 사람(보조) | 기계(Query·Lint) |
-| **형식** | 무엇이든 (코드·PDF·로그) | Markdown + frontmatter + `[[링크]]` | JSON / 그래프 |
-| **입력** | 사람·CI·툴이 생성 | Raw + Ingest 파이프라인 | Wiki 페이지에서 추출 |
-| **출력** | (가공 전) | Concept/Knowledge 페이지 | entities/relationships/constraints |
-| **변경 주체** | 개발자·외부 시스템 | Agent 생성 → 사람 승인 | Agent 생성 → Lint 검증 |
-| **`acme-billing` 예시** | `invoice.py`, ADR-017, Slack 사고 | `concepts/idempotent-invoice-issuance.md` | `Invoice`–`guarded_by`→`redis-idempotency-key` 엣지 |
-| **불변성** | 불변(append-only 취급) | 재생성 가능(빌드 산출물) | Wiki에서 재생성 |
-
-### 4-2. 왜 Wiki와 Schema를 **분리**하나 — 같은 지식의 두 투영
-
-이게 가장 자주 받는 질문입니다. "그냥 Markdown 하나면 되지, 왜 JSON 그래프를 또 만드나?"
-
-답: **역할이 다릅니다.** Wiki(prose)는 *읽기* 최적, Schema(graph)는 *순회·검증* 최적입니다.
-
-- 🧵 "renew가 무엇을 호출하나?"는 **그래프 순회** 질문 → Schema의 엣지를 BFS로 따라가야 빠르고 정확. Markdown 본문을 LLM이 매번 읽어 파싱하면 느리고 불안정.
-- "이 페이지가 가리키는 `[[InvoiceService]]`가 실제로 존재하나?"는 **검증** 질문 → Schema 노드 존재 여부로 O(1) 확인 (Broken Link Lint, Section 10).
-- 반대로 "왜 DB unique 제약을 폐기했나"의 *서사*는 Schema 엣지로 표현하기 나쁘고, Wiki 산문이 적합.
-
-📌 **핵심:** Wiki 페이지의 frontmatter `related:`와 Schema의 `relationships`는 **같은 관계의 두 표현**입니다. 빌드 시 Wiki에서 Schema를 추출하고, Lint가 둘의 정합성을 검사합니다. 손으로 둘 다 쓰지 않습니다 — Wiki를 정본으로 두고 Schema를 **파생**시키는 게 보통입니다(역방향도 가능).
-
-### 4-3. 디렉터리 레이아웃 — Wiki는 레포에 커밋된다
-
-🧪 **시나리오:** `acme-billing` 팀은 Wiki를 **레포 안에** 둡니다. 코드와 함께 버전관리되고, PR로 리뷰되고, CI에서 Lint됩니다(Section 10). Agent는 이 디렉터리를 읽고 씁니다.
+Ingest는 새 raw를 **검색용으로 색인하는 게 아니라**, 읽고 소화해 **기존 위키 구조에 짜 넣는** 동작입니다. 이게 RAG의 인덱싱과 결정적으로 다른 점입니다.
 
 ```
-acme-billing/
-├── app/ ...                         # Raw (코드)
-├── docs/adr/ ...                    # Raw (ADR)
-└── wiki/                            # ← LLM Wiki (레포에 커밋, PR 리뷰, CI Lint)
-    ├── concepts/                    # Concept Page (개념·패턴)
-    │   ├── idempotent-invoice-issuance.md
-    │   └── dependency-injection.md
-    ├── knowledge/                   # Knowledge Page (구체 엔티티)
-    │   ├── InvoiceService.md
-    │   ├── renew_subscription.md
-    │   └── Invoice.md
-    ├── schema/                      # Schema Layer (파생·검증 대상)
-    │   ├── entities.json
-    │   ├── relationships.json
-    │   └── constraints.json
-    └── .wikilintrc.yaml             # Lint 규칙 (Section 10)
+새 raw 1건  ─ingest→  ① 읽고 takeaway 확인
+                      ② sources/요약 페이지 생성        (+1)
+                      ③ 관련 entity/concept 갱신·생성   (~10개 갱신/신규)
+                      ④ 충돌 시 기존 페이지 수정 + 기록
+                      ⑤ index.md 갱신 + log.md 기록     (+2)
+              결과:  "한 source가 위키 전반 10~15 페이지에 파문을 일으킨다"
 ```
 
-> 🔧 **실무 팁:** Raw가 외부(Notion·Slack·Confluence)에 있으면 `wiki/`만 레포에 두고, Ingest 파이프라인이 외부 Raw를 끌어옵니다(Section 15). 핵심은 **Wiki/Schema는 버전관리 + 코드리뷰 + CI 대상**이라는 것 — "운영되는 시스템"이지 일회성 산출물이 아닙니다.
+📌 **핵심 차이:** RAG에서 새 문서는 그냥 청크가 되어 *옆에 쌓일* 뿐, 기존 지식과 **엮이지 않습니다.** Ingest는 새 사실을 **기존 페이지들 속으로 녹여** 넣습니다 — 그래서 지식이 *축적*됩니다. 한 건을 넣었는데 열 페이지가 좋아지는 게 정상입니다.
+
+⌨️ **Claude Code 프롬프트 (ingest):**
+```
+raw/articles/ 에 2025년 HBM 점유율 기사 1건 추가했어. CLAUDE.md의 INGEST
+절차대로 ingest 해줘. 충돌하는 기존 진술 있으면 먼저 알려주고.
+```
+
+### 4-2. Query — 위키를 읽고 답하고, 좋은 답은 다시 위키가 된다
+
+Query는 **원문이 아니라 위키를 읽어** 답합니다. 그리고 특별한 점: **좋은 답은 새 페이지로 파일링**됩니다 — 질문에 답하는 행위 자체가 위키를 더 풍부하게 만듭니다.
+
+```
+질문  ─query→  ① index.md 읽고 관련 페이지 선택
+               ② 페이지들 + [[링크]] 한두 홉 읽고 합성
+               ③ [[근거 링크]] 달아 답변
+               ④ 재사용 가치 크면 → comparisons/ 등에 새 페이지로 저장
+```
+
+🧵 **관통 질문을 query로:**
+
+⌨️ ```엔비디아 HBM은 누가 주도하고, SK하이닉스가 앞선 이유와 삼성·마이크론과의 관계를 정리해줘.```
+
+에이전트가 위키를 읽고 내놓는 답(요지):
+
+> **HBM 주도권은 SK하이닉스([[sk-hynix]])** — 2025년 2분기 점유율 약 62%로 1위, 마이크론([[micron]]) 약 21%, 삼성([[samsung-electronics]]) 약 17%입니다.
+> **앞선 이유:** 엔비디아([[nvidia]]) [[h100]]·H200 등 AI GPU용 HBM([[hbm3e]] 포함)을 초기부터 인증·수율 우위로 거의 단독 공급([[sk-hynix-vs-samsung-hbm]] 참조). 이 선점이 차세대 [[hbm4]](엔비디아 차세대 GPU 탑재)로 이어집니다.
+> **관계:** 셋은 HBM **3사 과점**이며 서로 경쟁. 다만 삼성은 *DRAM 종합*에서는 여전히 선두이고, 2025 회계연도엔 SK하이닉스가 **연간 영업이익에서 삼성을 사상 처음 추월**했습니다.
+> *(근거: [[sk-hynix]], [[hbm]], [[hbm3e]], [[sk-hynix-vs-samsung-hbm]])*
+
+📌 RAG였다면 기사 8청크를 새로 검색해 매번 이 합성을 다시 했을 겁니다. 위키는 **이미 합성된 4페이지(~1.5K토큰)**만 읽고 답합니다 — 빠르고, 출처가 명확하고, **다음에 물어도 같은 답**이 나옵니다. 그리고 이 비교가 유용하면 `comparisons/`에 페이지로 남아 *다음 질문의 재료*가 됩니다.
+
+### 4-3. Lint — 위키의 건강검진
+
+위키는 살아 있으니 썩을 수도 있습니다. Lint는 **주기적 건강검진**입니다. Graph RAG에 없던 "주인의 청소"를 자동화한 것이죠.
+
+| Lint가 잡는 것 | 의미 | 관통 예시 |
+|---|---|---|
+| **모순(contradiction)** | 두 페이지가 충돌 | 2023 "삼성 메모리 부동의 1위" ↔ 2026 "HBM은 SK 주도" |
+| **낡은 사실(stale/drift)** | raw 날짜 대비 오래된 단정 | 옛 점유율 수치가 갱신 안 됨 |
+| **고아 페이지(orphan)** | 들어오는 링크 없음 | 아무도 안 가리키는 `[[micron-old]]` |
+| **끊긴 링크(broken link)** | 존재 않는 `[[페이지]]` 참조 | `[[hbm4]]`를 링크했는데 페이지 미생성 |
+| **공백(gap)** | 자주 언급되나 페이지 없음 | `[[tsv]]`가 5번 언급, 페이지 없음 |
+| **저신뢰(low confidence)** | 출처 빈약 | `[[micron]]` 점유율 출처 1건뿐 |
+
+⌨️ ```lint 돌려줘. 특히 모순이랑 낡은 사실 위주로.```
+
+> 📄 `outputs/lint-2026-06-20.md` (발췌)
+
+```markdown
+# Lint 리포트 — 2026-06-20
+
+## 🔴 모순 (1)
+- [[samsung-electronics]]: "메모리 부동의 1위"(2023 기사 기반)
+  ↔ [[sk-hynix]]: "2025 영업이익 추월·HBM 62%"(2026 기사 기반)
+  → 제안: 삼성 페이지를 "DRAM 종합 선두이나 HBM 주도권은 SK하이닉스"로 수정.
+    옛 진술은 '2023년 시점'으로 맥락 보존. ✅ 적용함.
+
+## 🟡 끊긴 링크 (1)
+- [[hbm4]] 가 [[sk-hynix]]·[[hbm]]에서 참조되나 페이지 없음 → 생성 권고
+
+## 🟡 저신뢰 (1)
+- [[micron]] confidence=medium: 점유율 출처 1건뿐. raw 보강 필요(사람에게 요청)
+
+## ✅ 정상
+- 고아 페이지 0 · index 정합성 OK
+```
+
+📌 Lint가 **모순을 해소하며 옛 사실을 "지우지 않고 시점으로 보존"**하는 게 포인트입니다. 그래서 위키는 "지금 맞는 것"도 틀리지 않고, "예전엔 왜 그랬나"의 서사도 잃지 않습니다 — 이게 *지식의 진화 관리*입니다.
+
+🔧 **실무 팁:** lint는 **주간 1회** 정도가 적당합니다(카파시도 weekly health check로 표현). 매 ingest마다 돌릴 필요는 없고, ingest는 충돌을 *기록*만 하고 lint가 *해소*하게 역할을 나누면 깔끔합니다.
 
 ### 🧭 Section 4 한 줄 요약
 
-> 3계층: **Raw**(진실의 원천, 불변·잡음) → **Wiki**(AI용 정본 산문, 재생성됨) → **Schema**(기계용 그래프, 순회·검증). Wiki와 Schema는 *같은 지식의 두 투영*(읽기용/순회용)이며 Wiki를 정본으로 Schema를 파생한다. `wiki/`는 레포에 커밋되어 PR·CI 대상이 된다.
+> **Ingest**=새 raw를 색인이 아니라 *기존 페이지에 녹여* 넣기(한 건이 10~15 페이지를 건드림). **Query**=원문이 아니라 *위키*를 읽고 답하고, 좋은 답은 새 페이지로 환원. **Lint**=모순·낡음·고아·끊긴링크·공백·저신뢰를 *주기적으로* 청소하되 옛 사실은 시점으로 보존.
 
 ---
 
-<a id="section-5"></a>
-## Section 5. Raw Layer — Agent가 무엇을 읽는가
+<a id="sec5"></a>
+## Section 5. E2E 시나리오 — 빈 폴더에서 시작해 끝까지
 
-Raw Layer는 **진실의 원천(source of truth)** 입니다. 가공되지 않은, 중복·모순·잡음투성이의 원본. LLM Wiki는 이것을 *바꾸지 않고*, 읽어서 위층을 빌드합니다.
+이제 전부를 하나로 엮습니다. **분석가 여러분이 4주에 걸쳐** 위키를 키우는 과정을, 처음 빈 폴더부터 따라갑니다. (프레임워크 없이 Claude Code와 폴더만으로요.)
 
-### 5-1. Raw 소스 유형과 `acme-billing` 매핑
+### Day 0 — 워크스페이스 부팅
 
-| Raw 유형 | 무엇을 담나 | `acme-billing` 예 | 로더/추출기 |
-|---|---|---|---|
-| **GitHub Repository (코드)** | 구조·구현의 1차 진실 | `app/**`, `migrations/**` | tree-sitter / `ast` / git |
-| **Markdown** | 핸드북·README | `README.md`, `CONTRIBUTING.md` | 파일 직접 |
-| **ADR** | *왜* 그렇게 결정했나 | `docs/adr/ADR-017`, `ADR-021` | 파일 직접 |
-| **API Docs** | 외부 계약 | OpenAPI `openapi.json` (FastAPI 자동생성) | OpenAPI 파서 |
-| **Slack Logs** | 사고·암묵지·맥락 | `#billing-incidents` 2025-11 사고 | Slack API |
-| **Notion** | 온보딩·정책 | "결제팀 온보딩" | Notion API |
-| **PDF** | 계약·규정·외부 명세 | 결제대행사(PSP) 연동 명세 | `pypdf`/멀티모달 |
+⌨️ ```semi-wiki/ 폴더를 만들고, '반도체/AI 메모리' 주제의 LLM Wiki를 시작하려고 해. raw/ wiki/ outputs/ 구조를 만들고, CLAUDE.md(스키마)를 초안으로 작성해줘. 페이지 규약과 ingest/query/lint 절차를 포함해서.```
 
-📌 **각 Raw 유형은 "다른 종류의 진실"을 담습니다.** 코드는 *무엇을/어떻게*, ADR은 *왜*, Slack은 *맥락/사고*, API Docs는 *계약*. 좋은 Wiki 페이지는 이들을 **교차 인용**합니다 — Section 2-3 페이지가 코드+ADR+Slack을 한 페이지에 묶었듯이.
+→ 에이전트가 Section 3-4의 `CLAUDE.md`와 빈 `wiki/index.md`·`log.md`를 만듭니다. **이 시점 위키는 텅 비어 있습니다.**
 
-### 5-2. Raw의 두 가지 규칙: 불변성 + 출처추적
+### Week 1 — 첫 ingest (기사 2건)
 
-**① 불변(immutable)으로 취급한다.** Wiki는 Raw를 수정하지 않습니다. 코드를 고치는 건 개발자(또는 코딩 에이전트의 별도 작업)이지, Wiki 빌드가 아닙니다. Wiki는 **읽기 전용 소비자**입니다.
+여러분이 `raw/articles/`에 두 건을 저장합니다: ① 2023-08 SK하이닉스 엔비디아 HBM3 단독공급, ② HBM 기술 해설 리포트.
 
-**② 모든 Wiki 진술은 Raw로 역추적(provenance)된다.** Section 2-3 페이지의 `sources:`가 그것입니다. 출처 없는 Wiki 진술은 **환각 의심 대상**이고 Lint가 잡아냅니다(Section 10, 19). 이게 RAG의 "출처 표기"를 계층 차원으로 끌어올린 것입니다.
+⌨️ ```raw/articles/에 2건 넣었어. ingest 해줘.```
 
-> 💻 **Raw 로딩 — 코드에서 "읽을 단위" 뽑기** (`ast`로 함수/클래스 경계 추출)
+→ 결과(에이전트가 생성한 것):
+- `sources/2023-08-sk-hynix-nvidia-hbm3.md`, `sources/2026-hbm-roadmap.md` (요약)
+- `entities/sk-hynix.md`, `entities/nvidia.md`, `entities/h100.md` (신규)
+- `concepts/hbm.md`, `concepts/hbm3e.md`, `concepts/dram.md` (신규)
+- `index.md` 갱신, `log.md` 기록
 
-```python
-import ast, pathlib
+**한 번의 ingest로 8개 페이지가 생겼습니다.** 이때 `sk-hynix.md`는 "엔비디아 HBM3 주 공급사" 수준의 사실만 담고 있습니다.
 
-def iter_code_units(root: str):
-    """파일을 통째로 청크내지 않고, 함수/클래스 단위로 의미 경계를 뽑는다."""
-    for path in pathlib.Path(root).rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                yield {
-                    "raw_id": f"{path}#{node.name}",          # provenance 키
-                    "kind": type(node).__name__,
-                    "name": node.name,
-                    "file": str(path),
-                    "lineno": node.lineno,
-                    "src": ast.get_source_segment(path.read_text(), node),
-                    "doc": ast.get_docstring(node),
-                }
+### Week 2 — ingest 누적, 그리고 첫 모순 등장
 
-# 예: renew_subscription, SubscriptionService.renew, InvoiceService.issue_invoice …
-```
+새 raw 2건: ③ 2025-Q2 HBM 점유율(SK 62%/마이크론 21%/삼성 17%), ④ (예전에 저장해 둔) 2023년 "삼성전자, 메모리 반도체 부동의 1위" 기사.
 
-> 🔧 **실무 팁:** 코드 Raw는 "임의 N자 청킹"보다 **AST 경계 청킹**이 압도적으로 낫습니다 — `issue_invoice` 함수가 두 청크로 잘리는 일이 없고, `raw_id`가 안정적이라 provenance·증분 갱신(Section 12)에 그대로 쓰입니다.
+⌨️ ```raw 2건 더 넣었어. ingest 하고, 기존 진술이랑 충돌하는 거 있으면 알려줘.```
+
+→ 에이전트 응답:
+> `[[samsung-electronics]]` 신규 생성, `[[micron]]` 신규, `[[sk-hynix]]` 갱신(점유율 추가).
+> ⚠️ **충돌 발견:** raw ④는 "삼성 메모리 부동의 1위", raw ③은 "HBM은 SK 62%로 1위". 시점·범위가 다릅니다(2023 종합 vs 2025 HBM). 지금은 양쪽을 시점과 함께 기록해 두고, **lint 때 정리**하겠습니다. log에 충돌로 표시했습니다.
+
+📌 보세요 — ingest가 충돌을 **숨기지 않고 명시**하되, 즉석에서 무리하게 판단하지 않고 **lint로 넘깁니다.** 역할 분담이 깔끔합니다.
+
+### Week 3 — query (관통 질문)
+
+위키가 충분히 찼습니다. 관통 질문을 던집니다 (Section 4-2의 그 답이 나옵니다). 에이전트는 `index.md` → 관련 4페이지 → `[[링크]]` 순회로 **원문 재검색 없이** 답하고, 유용한 비교를 `comparisons/sk-hynix-vs-samsung-hbm.md`로 저장 제안합니다.
+
+🧪 **구축 전이라면?** 같은 질문을 그냥 LLM에 던지면 학습 시점 지식으로 두루뭉술 답하거나 환각합니다. RAG였다면 기사 청크를 새로 긁어 매번 합성(+토큰)하고, 폐기된 옛 기사와 최신 기사를 같은 무게로 섞어 "삼성이 1위"라고 틀릴 위험이 큽니다. **위키는 정리된 4페이지로 출처까지 달아 일관되게 답합니다.**
+
+### Week 4 — lint (청소)
+
+⌨️ ```lint 돌려줘.```
+
+→ Section 4-3의 리포트가 나옵니다. **삼성 페이지의 "부동의 1위"가 "DRAM 종합 선두이나 HBM 주도권은 SK하이닉스(2025~)"로 수정**되고, 옛 진술은 2023년 시점으로 보존됩니다. 끊긴 링크 `[[hbm4]]`는 생성 권고, 저신뢰 `[[micron]]`은 raw 보강 요청.
+
+### 4주 후 — "구축 전 vs 후"
+
+| | 위키 구축 **전** (그냥 LLM / RAG) | 위키 구축 **후** (LLM Wiki) |
+|---|---|---|
+| 같은 질문 반복 | 매번 재검색·재합성 (비용·일관성↓) | 정리된 페이지 재사용 (싸고 일관) |
+| 시간에 따른 변화 | 옛/새 정보 뒤섞임 → 오답 위험 | 시점 보존 + 정본 우선 (lint가 관리) |
+| 관계 추적 | 청크론 약함 / Graph RAG는 추출 파이프라인 필요 | `[[링크]]`로 자연히 형성, 무료 |
+| 지식의 형태 | 흩어진 청크/노드 | **사람이 펼쳐 읽는 정리본** + 그래프(Obsidian) |
+| 새 사실 추가 | 옆에 쌓일 뿐 | 기존 10~15 페이지에 *녹아듦* → 축적 |
+| 유지보수 | 추출/정규화/드리프트 관리 | ingest+주간 lint, 규칙 한 장(CLAUDE.md) |
+
+📌 4주간 한 일은 "raw 저장 + ingest + 가끔 query + 주간 lint"가 전부입니다. 그런데 **위키는 매주 두꺼워지고 똑똑해졌습니다.** 이게 Graph RAG로는 안 되던 *축적*입니다.
 
 ### 🧭 Section 5 한 줄 요약
 
-> Raw Layer는 **진실의 원천**(코드·ADR·API Docs·Slack·Notion·PDF)이며 유형마다 다른 진실(무엇/왜/맥락/계약)을 담는다. 두 규칙: **불변으로 취급**, **모든 Wiki 진술은 Raw로 역추적**. 코드 Raw는 임의 청킹이 아니라 AST 경계로 읽는다.
+> 빈 폴더 → CLAUDE.md 부팅 → 매주 raw 저장+ingest(페이지가 녹아 쌓임) → query(원문 없이 위키로 답) → 주간 lint(모순 정리·시점 보존). 4주 뒤 위키는 *축적된 정리본*이 되고, 같은 질문에 더 싸고 일관되게 답한다.
 
 ---
 
-<a id="section-6"></a>
-## Section 6. Wiki Layer — 정본 지식의 형식 (가장 중요)
+<a id="sec6"></a>
+## Section 6. Obsidian으로 시각화하기
 
-Wiki Layer는 **AI가 읽기 위한 정본 산문**입니다. 두 종류의 페이지로 이루어집니다.
+지금까지 만든 `wiki/`는 **그냥 마크다운 파일 폴더**입니다. 그래서 [Obsidian](https://obsidian.md) 같은 마크다운 도구로 **그대로 열면** 됩니다. Obsidian이 LLM Wiki와 궁합이 좋은 이유: `[[위키링크]]`와 frontmatter를 **네이티브로** 이해하거든요. 별도 변환이 필요 없습니다 — `semi-wiki/` 폴더를 Obsidian *Vault*로 열기만 하면 끝.
 
-### 6-1. 두 페이지 타입 — Concept vs Knowledge
+> 💡 **비유:** 우리가 글을 쓰며 단 `[[링크]]`들이 사실은 그래프의 *엣지*였습니다. Obsidian은 그 엣지들을 **눈에 보이는 지도로 그려 주는** 도구입니다. Graph RAG는 그래프를 *만들려고* 파이프라인을 돌렸지만, 여기선 그래프가 *이미 글 속에 있고* Obsidian이 *렌더링*만 합니다.
 
-| | **Concept Page** | **Knowledge Page** |
-|---|---|---|
-| 담는 것 | **개념·패턴·정책** (추상) | **구체 엔티티** (코드의 실체) |
-| 1:1 대응 | 코드에 직접 대응 안 됨 | 보통 하나의 클래스/함수/모델/엔드포인트 |
-| `acme-billing` 예 | `idempotent-invoice-issuance`, `dependency-injection` | `InvoiceService`, `renew_subscription`, `Invoice` |
-| 수명 | 길다 (설계가 바뀌어야 변함) | 코드와 함께 변함 (증분 갱신 대상) |
-
-> 💡 **비유:** Knowledge Page는 위키피디아의 *"에펠탑"* 항목(구체적 실체), Concept Page는 *"고딕 건축"* 항목(여러 실체를 관통하는 개념). 둘은 `[[링크]]`로 연결됩니다 — "에펠탑은 [[고딕 건축]]의 예가 아니다" 같은 관계까지.
-
-### 6-2. Knowledge Page 해부 — `InvoiceService`
-
-> 💻 `wiki/knowledge/InvoiceService.md`
-
-```markdown
----
-id: knowledge.InvoiceService
-type: knowledge
-entity_kind: service_class
-title: InvoiceService
-status: canonical
-owners: [team-billing]
-last_verified: 2026-06-10
-sources:
-  - code: app/services/invoice.py#InvoiceService
-related:
-  - defined_in: "[[app/services/invoice.py]]"
-  - implements: "[[idempotent-invoice-issuance]]"      # → Concept Page
-  - called_by: "[[issue_invoice_task]]"
-  - writes: "[[Invoice]]"
-  - depends_on: "[[redis-idempotency-key]]"
-  - uses_pattern: "[[dependency-injection]]"
----
-
-## 무엇인가
-구독에 대한 인보이스 생성을 책임지는 서비스 클래스. 멱등 발행의 **구현체**.
-
-## 공개 API
-- `issue_invoice(subscription_id: int, period: date) -> Invoice | None`
-  - 반환 `None` = 이미 발행됨(멱등 no-op). 예외 아님.
-- `void_invoice(invoice_id: int) -> None`
-
-## 핵심 불변식 (Invariants)
-- 같은 `(subscription_id, period)`로 몇 번 호출돼도 `Invoice`는 1건. (→ [[idempotent-invoice-issuance]])
-- `period`는 UTC 월초.
-
-## 협력자 (Collaborators)
-- `redis` (멱등 키) · `db: AsyncSession` (FastAPI [[dependency-injection]]로 주입)
-```
-
-📌 Knowledge Page의 본질: **"코드를 읽지 않고도 이 엔티티를 안전하게 쓸 수 있을 만큼"** 의 계약·불변식·협력자·관계를 담습니다. 구현 세부(루프·변수)는 넣지 않습니다 — 그건 코드(Raw)가 진실이니까. Wiki는 *코드에서 자명하지 않은* 것(불변식, "None은 멱등 no-op이다", 관계)을 담습니다.
-
-🧪 **시나리오 (불변식이 버그를 막는다):** 개발자 J가 Claude Code로 결제 재시도 핸들러를 짭니다. `issue_invoice`가 `None`을 반환하자, Wiki가 없었다면 에이전트는 코드만 보고 "발행 실패"로 오인해 `raise HTTPException(500)` 같은 잘못된 처리를 넣었을 겁니다(중복 호출마다 500 → 알림 폭주). 하지만 `CLAUDE.md`(Section 16) 규칙대로 `InvoiceService` Knowledge Page를 먼저 읽어 **"None = 이미 발행됨(멱등 no-op), 예외 아님"** 불변식을 알게 됨 → `None`이면 기존 인보이스를 조회해 정상 응답하는 올바른 코드를 작성. **코드에서 자명하지 않은 한 줄의 불변식**이 운영 사고를 막은 것 — 이게 Knowledge Page가 존재하는 이유입니다.
-
-### 6-3. Concept Page 해부 — FastAPI Dependency Injection
-
-스펙이 요구한 FastAPI 예시(`BackgroundTasks`, `Dependency Injection`, `APIRouter`)를 Concept Page로 표현해 봅니다.
-
-> 💻 `wiki/concepts/dependency-injection.md`
-
-```markdown
----
-id: concept.dependency-injection
-type: concept
-title: 의존성 주입 (FastAPI Depends) in acme-billing
-status: canonical
-owners: [team-billing, team-platform]
-last_verified: 2026-06-09
-sources:
-  - code: app/api/deps.py
-  - code: app/api/subscriptions.py
-related:
-  - provides: "[[get_db]]"          # AsyncSession 주입자
-  - provides: "[[get_redis]]"
-  - consumed_by: "[[renew_subscription]]"
-  - consumed_by: "[[InvoiceService]]"
----
-
-## 정본 진술
-`acme-billing`의 모든 엔드포인트는 DB 세션·Redis·현재 사용자(인증)를
-**`Depends()`** 로 주입받는다. 직접 전역 객체를 import 하지 않는다.
-이유: 테스트에서 `app.dependency_overrides`로 가짜 세션을 끼우기 위함.
-
-## 표준 패턴
-- `get_db()` → `AsyncSession` (요청 단위, 끝나면 자동 close/rollback)
-- `get_redis()` → `redis.asyncio.Redis` (커넥션 풀 공유)
-- `get_current_customer()` → 인증된 `Customer`
-
-## 관계
-- `[[renew_subscription]]` 같은 [[APIRouter]] 핸들러가 이 패턴의 소비자.
-- 백그라운드 작업([[issue_invoice_task]])은 요청 스코프 밖이라 **DI를 못 쓴다**
-  → 세션을 직접 생성. (흔한 함정: 태스크에서 요청 세션을 재사용하려다 깨짐.)
-```
-
-여기서 **관계가 어떻게 지식을 묶는지** 보세요. `renew_subscription`(Knowledge) → `uses_pattern` → `dependency-injection`(Concept) → `provides` → `get_db`(Knowledge). Agent가 "renew 핸들러에 DB 세션 어떻게 들어와?"를 물으면 이 관계 한 홉으로 답이 나옵니다.
-
-### 6-4. Relationship — 관계는 1급 시민
-
-RAG에 없던, Wiki의 핵심 자산. 관계는 **타입을 가진 엣지**입니다. `acme-billing`에서 쓰는 표준 관계 타입:
-
-| 관계 타입 | 의미 | 예 (`acme-billing`) |
-|---|---|---|
-| `calls` / `called_by` | 호출 | `renew_subscription` → `SubscriptionService.renew` |
-| `implements` / `implemented_by` | 개념의 구현 | `InvoiceService` → `idempotent-invoice-issuance` |
-| `triggers` / `triggered_by` | 흐름 시작 | `renew_subscription` → `issue_invoice_task` |
-| `writes` / `reads` | 데이터 접근 | `InvoiceService` → `Invoice` |
-| `depends_on` | 인프라/외부 의존 | `InvoiceService` → `redis-idempotency-key` |
-| `guarded_by` | 불변식 보장 수단 | `Invoice` → `redis-idempotency-key` |
-| `supersedes` / `superseded_by` | 결정의 진화 | `ADR-021` → `BackgroundTasks 방식` |
-| `documented_in` | 출처 결정 | `idempotent-invoice-issuance` → `ADR-017` |
-
-⚠️ **함정 (Wrong Relationship):** 관계 타입을 아무거나 만들면 그래프가 의미를 잃습니다. **타입 vocabulary를 Schema에 고정**하고(Section 7), Lint가 미등록 타입을 거부하게 하세요(Section 10). 자유 텍스트 관계는 Schema Drift의 시작입니다(Section 19).
-
-### 6-5. Canonical Knowledge — 정본과 진화
-
-각 페이지·진술은 `status`를 가집니다. 이게 RAG에 없던 **지식 진화 관리**입니다.
+**① Graph View (그래프 뷰)** — 모든 `[[링크]]`가 노드-엣지로 그려집니다. 클러스터(밀집 주제)와 고립 노드(고아 페이지, =lint 대상)가 한눈에 보입니다.
 
 ```
-status 라이프사이클:
-  draft ──(사람 승인)──► canonical ──(사실 변경)──► deprecated
-                              │
-                              └──(대체 결정 등장)──► superseded_by: [[새 페이지]]
+        [nvidia]
+         ╱   ╲ supplies
+   [h100]    [sk-hynix]══경쟁══[samsung-electronics]
+       ╲      ║ 핵심제품          ╲ 경쟁
+     탑재╲    [hbm3e]──세대──[hbm4]   [micron]
+          ╲   │                      ╱
+           [hbm]────is-a────[dram]──┘
+     (굵은 클러스터 = HBM 주제. 아무 데서도 안 가리키면 = 고아)
 ```
 
-🧵 관통 예시의 진화: 처음엔 `idempotent-invoice-issuance`가 "DB unique 제약"으로 canonical이었습니다. ADR-017로 "Redis SETNX"가 채택되며 옛 진술은 `superseded`로, 새 진술이 canonical로 바뀌었습니다. **둘 다 그래프에 남되 status로 구분**됩니다 — 그래서 Agent는 "예전엔 왜 DB 제약이었나"도 답할 수 있고(서사 보존), "지금 뭐가 맞나"도 틀리지 않습니다(정본 우선).
+**② Backlinks 패널** — 아무 페이지나 열면 "이 페이지를 가리키는 다른 페이지들"이 자동으로 뜹니다. `[[sk-hynix]]`를 열면 `hbm`, `nvidia`, `hbm3e`, `comparisons/...`가 역참조로 보입니다 — **관계를 수동 관리할 필요가 없습니다.**
 
-> 🔧 **실무 팁 (Knowledge Compression의 실제 효과):** Section 2-3 정본 페이지(~400토큰)를 **프롬프트 캐싱**으로 고정하면, 같은 도메인을 만지는 모든 에이전트 턴이 그 페이지를 **캐시 read(≈0.1배 비용)** 로 재사용합니다. 정본 페이지는 자주 안 바뀌므로 캐시 적중률이 높습니다 — Wiki가 비용까지 잡는 지점(Section 9·16에서 코드로).
+**③ Dataview 플러그인** — frontmatter를 *쿼리*할 수 있습니다. lint를 사람이 눈으로 거들 때 유용합니다.
+
+> 📄 Obsidian Dataview 쿼리 — "보강이 필요한 저신뢰 페이지 찾기"
+
+````markdown
+```dataview
+TABLE type, confidence, updated
+FROM "entities" OR "concepts"
+WHERE confidence = "low" OR confidence = "medium"
+SORT updated ASC
+```
+````
+
+→ `[[micron]]`(medium)처럼 출처가 빈약한 페이지가 표로 떠서, "다음에 어떤 raw를 더 모아야 하는지"가 보입니다.
+
+🔧 **실무 팁:** Obsidian은 **사람의 읽기/탐색용**이고, 에이전트의 읽기/쓰기는 **Claude Code(파일 직접)**가 합니다. 같은 폴더를 둘이 공유하는 구조라 충돌이 없습니다. 대규모 위키라면 로컬 시맨틱 검색(BM25+벡터+리랭킹) 도구를 얹어 사람 검색을 보강하기도 합니다.
 
 ### 🧭 Section 6 한 줄 요약
 
-> Wiki Layer = **Concept Page**(개념·패턴) + **Knowledge Page**(구체 엔티티), 둘 다 정본 진술·불변식·`[[관계]]`·출처를 담는다. **관계는 타입을 가진 1급 엣지**(calls/implements/guarded_by/supersedes…)이고 vocabulary는 Schema에 고정한다. `status`로 정본↔폐기↔대체를 관리해 **지식의 진화**를 잃지 않는다.
+> `wiki/` 폴더를 Obsidian Vault로 열면 `[[링크]]`가 **그래프 뷰·백링크**로 시각화된다 — 그래프를 *만든 게* 아니라 글 속 링크를 *그린* 것. Dataview로 frontmatter(confidence 등)를 쿼리해 lint를 거든다. 에이전트는 Claude Code로 쓰고, 사람은 Obsidian으로 본다.
 
 ---
 
-<a id="section-7"></a>
-## Section 7. Schema Layer — 기계가 읽는 그래프
+<a id="sec7"></a>
+## Section 7. Claude Code로 실무 구축하기
 
-Schema Layer는 Wiki를 **기계가 순회·검증할 수 있는 형태**로 만든 것입니다. 네 가지 요소: **Entity · Relationship · Metadata · Constraints**.
+LLM Wiki는 **파일을 읽고·쓰고·grep하고·일관된 규칙(CLAUDE.md)을 자동 로드**하는 에이전트와 천생연분입니다. 그래서 Claude Code가 거의 이상적인 런타임입니다. 실무 셋업을 정리합니다.
 
-### 7-1. Entity — 타입을 가진 노드
+### 7-1. 왜 Claude Code가 이 패턴에 맞나
 
-> 💻 `wiki/schema/entities.json` (발췌)
+| LLM Wiki가 필요로 하는 것 | Claude Code가 기본 제공 |
+|---|---|
+| `wiki/` 파일 생성·갱신 | 파일 읽기/쓰기/편집 네이티브 |
+| 관련 페이지 탐색 | grep/glob, `[[링크]]` 추적 |
+| 일관된 작성 규약 강제 | **`CLAUDE.md` 자동 로드** = 스키마가 곧 스키마 |
+| 반복 동작(ingest/query/lint) | 슬래시 커맨드/프롬프트 템플릿 |
+| 버전관리·리뷰 | git 친화 (위키가 텍스트라 diff·PR 가능) |
 
-```json
-{
-  "entities": [
-    {
-      "id": "knowledge.InvoiceService",
-      "kind": "service_class",
-      "title": "InvoiceService",
-      "status": "canonical",
-      "wiki_page": "wiki/knowledge/InvoiceService.md",
-      "source": { "code": "app/services/invoice.py#InvoiceService" },
-      "metadata": { "owners": ["team-billing"], "last_verified": "2026-06-10" }
-    },
-    {
-      "id": "knowledge.renew_subscription",
-      "kind": "http_endpoint",
-      "title": "POST /subscriptions/{id}/renew",
-      "status": "canonical",
-      "wiki_page": "wiki/knowledge/renew_subscription.md",
-      "source": { "code": "app/api/subscriptions.py#renew_subscription" },
-      "metadata": { "method": "POST", "auth": "customer" }
-    },
-    {
-      "id": "concept.idempotent-invoice-issuance",
-      "kind": "concept",
-      "title": "멱등 인보이스 발행",
-      "status": "canonical",
-      "wiki_page": "wiki/concepts/idempotent-invoice-issuance.md",
-      "source": { "adr": "docs/adr/ADR-017-idempotent-invoice-issuance.md" }
-    },
-    {
-      "id": "knowledge.redis-idempotency-key",
-      "kind": "infra_resource",
-      "title": "Redis 멱등 키",
-      "status": "canonical",
-      "metadata": { "key_pattern": "idem:invoice:{subscription_id}:{period}", "ttl_sec": 86400 }
-    }
-  ]
-}
+📌 즉 **스키마 레이어가 Claude Code에서는 별도 구현물이 아니라 그냥 `CLAUDE.md`**입니다. 카파시 패턴이 Claude Code에서 특히 자연스러운 이유가 이것입니다.
+
+### 7-2. 셋업 (실무 권장)
+
+1. **레포로 시작.** `semi-wiki/`를 git 레포로. `raw/`도 커밋(불변 스냅샷 보존), `wiki/`도 커밋(변화 추적). → 모든 ingest/lint가 **diff로 리뷰**됩니다. 잘못된 갱신은 `git revert`로 되돌립니다. (이게 카파시가 말한 *model collapse 방지 안전장치* — 불변 raw + git 이력.)
+2. **`CLAUDE.md`를 스키마로.** Section 3-4를 출발점으로. 운영하며 규칙이 부족하면 **한 줄씩 추가**(co-evolve).
+3. **3동작을 슬래시 커맨드로.** `.claude/commands/`에 `ingest.md`·`query.md`·`lint.md`를 두면 `/ingest` 한 번으로 절차가 실행됩니다.
+
+> 📄 `.claude/commands/lint.md` — 커스텀 슬래시 커맨드 예
+
+```markdown
+CLAUDE.md의 LINT 절차를 그대로 수행해라. 모든 wiki/ 페이지를 훑어
+모순·낡은사실·고아·끊긴링크·공백·저신뢰를 점검하고,
+outputs/lint-{오늘날짜}.md 로 리포트를 써라.
+자신 있는 수정은 적용하고, 애매하면 목록으로 만들어 나에게 물어라.
 ```
 
-`kind`는 **고정 vocabulary**입니다: `service_class`, `http_endpoint`, `db_model`, `background_task`, `infra_resource`, `concept`, `decision(ADR)`, `external_contract` 등. 임의 kind는 Lint가 거부합니다.
+### 7-3. 운영 루틴
 
-### 7-2. Relationship — 타입을 가진 엣지
-
-> 💻 `wiki/schema/relationships.json` (발췌) — 관통 질문의 정답 경로가 그래프로
-
-```json
-{
-  "relationships": [
-    { "from": "knowledge.renew_subscription", "type": "triggers",
-      "to": "knowledge.issue_invoice_task" },
-    { "from": "knowledge.issue_invoice_task", "type": "calls",
-      "to": "knowledge.InvoiceService", "note": "issue_invoice()" },
-    { "from": "knowledge.InvoiceService", "type": "implements",
-      "to": "concept.idempotent-invoice-issuance" },
-    { "from": "knowledge.InvoiceService", "type": "writes",
-      "to": "knowledge.Invoice" },
-    { "from": "knowledge.Invoice", "type": "guarded_by",
-      "to": "knowledge.redis-idempotency-key" },
-    { "from": "decision.ADR-021", "type": "supersedes",
-      "to": "knowledge.fastapi-backgroundtasks-invoicing",
-      "note": "BackgroundTasks → Celery 이전" }
-  ]
-}
+```
+매일/수시 :  관심 기사 → raw/에 저장 (날짜 파일명)  →  /ingest
+필요할 때 :  /query "..."   (원문 아닌 위키로 답, 좋은 답은 페이지로)
+주 1회    :  /lint          (모순 정리·시점 보존·끊긴링크 보수)
+가끔      :  Obsidian으로 그래프 보며 고립/공백 점검 (Section 6)
 ```
 
-이 엣지들을 `from`/`to`로 이으면 정확히 Section 1-3의 정답 경로가 됩니다. Query 엔진은 이걸 **BFS로 순회**합니다(Section 9).
+🔧 **실무 팁 — 비용:** 자주 안 바뀌는 핵심 페이지(예: `concepts/hbm.md`)는 **프롬프트 캐싱**으로 고정하면, 그걸 읽는 모든 query 턴이 캐시 read(저비용)로 재사용됩니다. RAG가 매 턴 새 청크로 비용을 쓰는 것과 반대로, 위키는 *정리되어 안정적*이라 캐시 적중률이 높습니다.
 
-### 7-3. Metadata — 운영을 가능케 하는 부가정보
+⚠️ **함정 — ingest를 너무 크게:** raw 50건을 한 번에 ingest시키면 에이전트가 컨텍스트를 넘겨 페이지를 얕게 만들거나 빠뜨립니다. **3~5건씩 끊어서** ingest하고, 매번 "어떤 페이지를 건드렸는지" 확인하세요.
 
-엔티티/관계에 붙는 운영 메타데이터. 이게 있어야 **거버넌스·freshness·접근제어**가 됩니다.
+### 7-4. 구축 전 vs 후 — "할 수 있게 되는 것들"
 
-| 메타데이터 | 용도 | 어디서 쓰나 |
-|---|---|---|
-| `owners` | 변경 승인자 | Approval Workflow (Section 18) |
-| `last_verified` | 신선도 | Stale Lint (Section 10) |
-| `source` | 출처 | Provenance·Broken-source Lint |
-| `status` | 정본/폐기 | Query 우선순위·Dedup |
-| `visibility` | 접근 권한 | 권한별 검색 필터 (Section 18) |
-| `confidence` | Agent 생성 신뢰도 | 사람 리뷰 우선순위 (Section 11) |
+LLM Wiki를 구축하면 이전엔 못 하던 게 가능해집니다.
 
-### 7-4. Constraints — 그래프가 지켜야 할 규칙
-
-Schema의 백미. **그래프 자체의 무결성 규칙**을 선언하고, Lint가 강제합니다.
-
-> 💻 `wiki/schema/constraints.json`
-
-```json
-{
-  "entity_kinds": ["service_class","http_endpoint","db_model","background_task",
-                   "infra_resource","concept","decision","external_contract"],
-  "relationship_types": ["calls","called_by","triggers","triggered_by","implements",
-                         "implemented_by","writes","reads","depends_on","guarded_by",
-                         "supersedes","superseded_by","documented_in"],
-  "rules": [
-    { "id": "no-dangling-edge",
-      "desc": "관계의 from/to는 반드시 존재하는 entity여야 한다" },
-    { "id": "endpoint-must-have-owner",
-      "applies_to_kind": "http_endpoint",
-      "require_metadata": ["owners"] },
-    { "id": "canonical-needs-source",
-      "when": { "status": "canonical" },
-      "require_metadata": ["source"],
-      "desc": "정본 진술은 출처가 없으면 환각 의심" },
-    { "id": "single-canonical-per-concept",
-      "desc": "한 개념에 canonical 진술은 하나만 (나머지는 superseded/deprecated)" },
-    { "id": "no-unknown-relationship-type",
-      "desc": "relationship_types에 없는 타입 금지 (Schema Drift 방지)" }
-  ]
-}
-```
-
-> 💻 **Constraints를 코드로 강제** — `jsonschema` + 커스텀 규칙 (Linter의 일부, Section 10·17에서 확장)
-
-```python
-import json, jsonschema
-
-ENTITY_SCHEMA = {
-    "type": "object",
-    "required": ["id", "kind", "title", "status"],
-    "properties": {
-        "id": {"type": "string"},
-        "kind": {"enum": json.load(open("wiki/schema/constraints.json"))["entity_kinds"]},
-        "status": {"enum": ["draft", "canonical", "deprecated", "superseded"]},
-    },
-    "additionalProperties": True,
-}
-
-def validate_entities(entities: list[dict]) -> list[str]:
-    errors = []
-    for e in entities:
-        try:
-            jsonschema.validate(e, ENTITY_SCHEMA)
-        except jsonschema.ValidationError as ex:
-            errors.append(f"{e.get('id','?')}: {ex.message}")
-    return errors
-```
-
-📌 **핵심:** Constraints가 LLM Wiki를 "그냥 마크다운 폴더"와 가르는 결정적 차이입니다. 그래프에 **타입 시스템과 무결성 규칙**이 있어서, Agent가 생성한 지식을 **기계가 검증**할 수 있습니다. 이게 없으면 Wiki는 곧 Schema Drift로 썩습니다(Section 19).
+- **"내가 지난 6개월간 알게 된 것"을 한 폴더로** 펼쳐 읽을 수 있다 (사람이 직접, Obsidian으로).
+- **새 세션 에이전트가 처음부터 똑똑하다** — `CLAUDE.md`+위키를 읽고 시작하므로, 매번 배경을 다시 안 깔아도 된다.
+- **"이 사실 어디서 봤지?"가 즉답된다** — 모든 진술이 raw로 역추적되니까.
+- **시간에 따른 변화를 서술**할 수 있다 — "2023엔 삼성 1위였는데 2025부터 HBM은 SK 주도" (lint가 시점 보존).
+- **지식이 자산으로 남는다** — 도구를 바꿔도 `wiki/`는 그냥 마크다운이라 그대로 가져간다(락인 없음).
 
 ### 🧭 Section 7 한 줄 요약
 
-> Schema Layer = **Entity(타입 노드)·Relationship(타입 엣지)·Metadata(운영정보)·Constraints(무결성 규칙)** 의 JSON 그래프. kind와 relationship_type은 **고정 vocabulary**, constraints는 `jsonschema`+커스텀 규칙으로 **기계 강제**. 이 타입 시스템이 순회(Query)·검증(Lint)·거버넌스를 가능케 하며, "마크다운 폴더"와 "운영되는 지식 그래프"를 가른다.
+> Claude Code는 파일 I/O + `CLAUDE.md` 자동 로드 덕에 LLM Wiki의 이상적 런타임이다. **git 레포 + CLAUDE.md(스키마) + /ingest·/query·/lint 커맨드**로 셋업하고, *수시 ingest·필요 시 query·주 1회 lint*로 운영한다. 핵심 페이지는 프롬프트 캐싱, ingest는 잘게. 결과: 지식이 *읽고 재사용 가능한 자산*으로 남는다.
 
 ---
-<a id="section-8"></a>
-## Section 8. Ingest Pipeline — Raw에서 Wiki를 빌드하기
 
-Ingest는 **"지식 컴파일러"** 입니다. Raw를 입력받아 Wiki+Schema를 빌드합니다.
+<a id="sec8"></a>
+## Section 8. LLM Wiki vs Graph RAG — 언제 무엇을
+
+LLM Wiki는 만능이 아닙니다. Section 1에서 약속한 **정직한 비교**를 합니다.
+
+### 8-1. 비교표
+
+| 항목 | RAG / Graph RAG | LLM Wiki |
+|---|---|---|
+| **합성 시점** | 매 쿼리(재발견) | 한 번(ingest), 재사용 |
+| **지식 축적** | 안 됨(청크/노드 누적) | **됨(페이지에 녹아 쌓임)** |
+| **관계** | Graph RAG는 추출 파이프라인 필요(고비용) | `[[링크]]`로 무료, Obsidian 시각화 |
+| **사람이 읽기** | 어려움(청크/그래프) | **쉬움(정리된 마크다운)** |
+| **출처 추적** | 가능하나 청크 단위 | 페이지→raw 역추적, 명시적 |
+| **규모(코퍼스)** | **수백만 문서 OK** | 수십~수백 source 적합 |
+| **변동성** | 매일 바뀌어도 OK | 잦은 전면 변경엔 약함 |
+| **다중 사용자/지연** | **대규모·저지연 강함** | 개인·팀, 비실시간 적합 |
+| **유지보수** | 추출·정규화·드리프트 | ingest + 주간 lint + 규칙 한 장 |
+
+### 8-2. LLM Wiki의 진짜 한계 (반드시 알 것)
+
+⚠️ **① 규모 천장.** 컴파일된 위키가 대략 **100K 토큰을 넘으면** index로 길을 찾아도 품질이 떨어지기 시작하고, **200~300K** 부근에서 한계가 옵니다. source **200건 이상**, 또는 사람·에이전트 누구도 전체를 머릿속에 못 담는 복잡도에서 무너집니다. → 이 지점부턴 RAG가 필요합니다.
+
+⚠️ **② Model collapse(반복 재작성 열화).** LLM이 같은 페이지를 거듭 다시 쓰면 정보가 미묘하게 뭉개질 수 있습니다(요약의 요약…). **방어:** 불변 `raw/` + **git 이력**(언제든 원천으로 되돌아가 재생성). 그래서 7-2의 "레포로 시작"이 중요합니다.
+
+⚠️ **③ Learning outsourcing.** 정리·연결·요약을 LLM에 맡기면, 그 과정에서 생기던 **사람의 깊은 이해**를 일부 잃습니다. 위키는 *지식*은 쌓지만 *당신의 학습*을 대신해 주진 않습니다 — query 답을 가끔은 직접 검증·소화하세요.
+
+⚠️ **④ 고변동·대규모엔 부적합.** 매일 수천 건이 바뀌는 코퍼스, 다수가 동시에 치는 저지연 검색은 RAG의 영역입니다.
+
+### 8-3. 결정 가이드
 
 ```
-   RAW                                                              WIKI + SCHEMA
-   코드/ADR/Slack ─► Extract ─► Normalize ─► Merge ─► Deduplicate ─► Wiki Update ─► Schema Update
-                    (LLM이      (정본 ID·    (기존     (중복 사실     (페이지         (그래프
-                     엔티티·    vocabulary   페이지에   탐지·삭제)     write)          재생성)
-                     관계 추출)  매핑)        합치기)
+내 상황은?
+
+ ├─ 수백만 문서 / 매일 대량 변경 / 다중사용자 저지연 ─────► RAG · Graph RAG
+ │
+ ├─ 1회성·저빈도 Q&A, 축적 의도 없음 ───────────────────► 그냥 RAG로 충분
+ │
+ ├─ "내가/우리 팀이 꾸준히 쌓는" 수십~수백 source 지식 ───► LLM Wiki
+ │     (반도체 추적, 리서치 노트, 경쟁사 분석, 취미 심화…)
+ │
+ ├─ 관계·출처·시간변화가 중요하고 사람도 읽어야 함 ──────► LLM Wiki
+ │
+ └─ 둘 다? 큰 raw 코퍼스 + 정리된 상위 지식 ─────────────► 하이브리드 (아래)
 ```
 
-각 단계를 관통 예시로 따라갑니다.
-
-### 8-1. Extract — Raw 단위에서 엔티티·관계 뽑기 (LLM + 구조화 출력)
-
-Section 5의 `iter_code_units`가 뽑은 `issue_invoice` 함수 소스를 LLM에 주고, **구조화 출력**으로 엔티티/관계를 받습니다. 자유 텍스트가 아니라 스키마 강제가 핵심입니다.
-
-> 💻 구조화 출력으로 Extract (`output_config.format`)
-
-```python
-import anthropic, json
-
-client = anthropic.Anthropic()
-
-EXTRACT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "entities": {"type": "array", "items": {
-            "type": "object",
-            "properties": {
-                "id": {"type": "string"},
-                "kind": {"enum": ["service_class","http_endpoint","db_model",
-                                  "background_task","infra_resource","concept"]},
-                "title": {"type": "string"},
-                "canonical_statement": {"type": "string"},
-                "invariants": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["id","kind","title","canonical_statement"],
-            "additionalProperties": False,
-        }},
-        "relationships": {"type": "array", "items": {
-            "type": "object",
-            "properties": {
-                "from": {"type": "string"},
-                "type": {"enum": ["calls","triggers","implements","writes","reads",
-                                  "depends_on","guarded_by"]},
-                "to": {"type": "string"},
-            },
-            "required": ["from","type","to"],
-            "additionalProperties": False,
-        }},
-    },
-    "required": ["entities","relationships"],
-    "additionalProperties": False,
-}
-
-def extract(unit: dict) -> dict:
-    resp = client.messages.create(
-        model="claude-opus-4-8",        # 추출 정확도가 Wiki 품질을 좌우 → Opus.
-        max_tokens=4000,                # 대규모 레포면 비용상 sonnet/haiku 검토(Section 14)
-        system="너는 코드에서 정본 지식과 타입 관계를 뽑는 추출기다. "
-               "코드에 명시된 사실만 뽑고, 추측 금지. id는 'kind.Name' 형식.",
-        messages=[{"role": "user", "content":
-                   f"file: {unit['file']}\nname: {unit['name']}\n\n{unit['src']}"}],
-        output_config={"format": {"type": "json_schema", "schema": EXTRACT_SCHEMA}},
-    )
-    return json.loads(next(b.text for b in resp.content if b.type == "text"))
-
-# extract(issue_invoice_unit) →
-# entities: [{id:"service_class.InvoiceService", canonical_statement:"기간당 1건만…", invariants:[...]}]
-# relationships: [{from:"...InvoiceService", type:"guarded_by", to:"infra_resource.redis-idempotency-key"}]
-```
-
-⚠️ **함정 (Agent Hallucination):** 추출 LLM이 코드에 없는 관계를 "그럴듯하게" 지어낼 수 있습니다(Section 19). 방어: (1) **"명시된 사실만"** 시스템 프롬프트, (2) 모든 추출에 `source`(raw_id) 강제, (3) Lint의 `canonical-needs-source` 규칙. ADR·Slack 같은 *서사* Raw는 추출 신뢰도가 낮으니 `confidence`를 낮게 달고 사람 리뷰로 보냅니다.
-
-### 8-2. Normalize — 정본 ID와 vocabulary로 맞추기
-
-추출기는 같은 것을 `InvoiceService` / `invoice_service` / `InvoiceSvc`로 제각각 부를 수 있습니다. Normalize가 **정본 ID**(`knowledge.InvoiceService`)로 통일하고, `kind`/`relationship type`을 Schema vocabulary(Section 7-4)에 매핑합니다. vocabulary에 없는 타입은 가장 가까운 표준으로 매핑하거나 리뷰 큐로 보냅니다.
-
-### 8-3. Merge — 기존 페이지에 새 사실 합치기
-
-`acme-billing`은 이미 `InvoiceService` Knowledge Page가 있습니다. 새 커밋에서 `void_invoice` 메서드가 추가됐다면, **페이지를 새로 만들지 않고** 기존 페이지의 "공개 API" 섹션에 합칩니다. 핵심 판단: *"이건 새 엔티티인가, 기존 엔티티의 새 사실인가?"* — `id` 일치로 1차 판별, 모호하면 임베딩 유사도(다음 단계)로.
-
-### 8-4. Deduplicate — 같은 사실의 N벌을 하나로
-
-Section 1-2에서 본 중복(코드+ADR+Slack+Notion이 같은 "멱등" 사실)을 여기서 제거합니다. **임베딩 유사도**로 "이 진술은 이미 정본에 있다"를 탐지합니다.
-
-> 💻 정본 진술과의 중복 탐지 (코사인 유사도)
-
-```python
-import numpy as np
-
-def cosine(a, b):
-    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
-
-def is_duplicate(new_stmt_emb, canonical_embs: list, threshold=0.92) -> bool:
-    """새 진술이 기존 정본 진술과 사실상 동일하면 True → 흡수(merge), 새 페이지 X."""
-    return any(cosine(new_stmt_emb, ce) >= threshold for ce in canonical_embs)
-
-# Notion "인보이스는 BackgroundTasks로…" 진술:
-#   - idempotent-invoice-issuance 정본과 sim 0.88 (관련은 있으나 동일 아님)
-#   - 단, 사실이 '모순' → Dedup이 아니라 '갱신 후보'로 분기.
-# 따라서 Dedup은 (a) 동일→흡수, (b) 모순→리뷰/갱신, (c) 신규→추가 로 3분기.
-```
-
-⚠️ **임계값 함정:** threshold가 낮으면 다른 사실을 합쳐 정보 손실, 높으면 중복이 남아 Wiki 폭증(Section 19). 0.9~0.95에서 시작해 도메인별 튜닝하고, **모순 케이스(b)는 절대 자동 흡수하지 말고** 사람에게 보냅니다 — "옛 사실 vs 새 사실"의 판단은 위험합니다.
-
-### 8-5. Wiki Update + Schema Update — 쓰고, 그래프 재생성
-
-정제된 결과로 Markdown 페이지를 write하고(Wiki), 거기서 `entities.json`/`relationships.json`을 **재생성**합니다(Schema). Wiki가 정본이고 Schema는 파생이므로, 페이지의 frontmatter `related:`를 파싱해 relationships를 다시 만듭니다. 마지막에 **Lint를 돌려**(Section 10) 무결성을 확인한 뒤에야 커밋합니다.
-
-🧪 **시나리오 (전체 Ingest 1회):** 팀이 `make wiki-ingest`를 돌리면 → 변경된 코드 유닛만 Extract → Normalize → 기존 페이지와 Merge/Dedup → `wiki/` 갱신 → Schema 재생성 → `wiki-lint` 통과 시 PR 생성. 사람은 PR diff(추가/변경된 정본 진술)만 리뷰합니다. **지식 빌드가 코드 빌드처럼** 돌아갑니다.
+🔧 **하이브리드 (실전 정석):** 방대한 `raw/`는 **RAG로 검색**하되, 그 위에 **LLM Wiki를 정리·축적 레이어로** 얹습니다. "검색은 RAG, 정리·관계·진화는 Wiki." 규모도 잡고 축적도 챙기는, 가장 흔한 실전 구성입니다.
 
 ### 🧭 Section 8 한 줄 요약
 
-> Ingest = 지식 컴파일러: **Extract**(LLM 구조화 추출, 출처 강제) → **Normalize**(정본 ID·vocabulary) → **Merge**(기존 페이지에 합침) → **Deduplicate**(임베딩 유사도; 동일은 흡수, **모순은 사람에게**) → **Wiki/Schema Update**(쓰고 그래프 재생성 후 Lint). 환각·중복·모순을 막는 게 각 단계의 존재 이유.
-
----
-
-<a id="section-9"></a>
-## Section 9. Query Pipeline — Wiki로 정확하게 답하기
-
-Query는 Ingest의 역방향입니다. 질문을 받아 **정본 페이지 검색 + 그래프 순회**로 정밀한 컨텍스트를 조립합니다.
-
-```
-   질문 ─► Intent Analysis ─► Wiki Search ─► Schema Traversal ─► Context Construction ─► Answer
-          (lookup? 관계?       (정본 페이지   (그래프 BFS로        (정본+이웃 합치고        (출처 포함,
-           how-to?)            하이브리드     관계 이웃 수집)      중복 제거·캐시)          관계 포함)
-                               검색)
-```
-
-관통 질문 🧵 "구독 갱신 시 인보이스 중복 발행을 어떻게 막나?"로 끝까지 따라갑니다.
-
-### 9-1. Intent Analysis — 질문 유형 분류
-
-질문이 *단순 조회(lookup)* 인지, *관계 추적(traversal)* 인지, *방법(how-to)* 인지에 따라 검색 전략이 다릅니다. 관통 질문은 "막는 **경로/수단**"을 묻는 → **traversal**.
-
-> 💻 인텐트 분류 (구조화 출력)
-
-```python
-def analyze_intent(question: str) -> dict:
-    resp = client.messages.create(
-        model="claude-haiku-4-5",       # 분류는 가볍고 빈번 → Haiku로 비용↓
-        max_tokens=300,
-        messages=[{"role": "user", "content": question}],
-        system="질문을 분류하라.",
-        output_config={"format": {"type": "json_schema", "schema": {
-            "type": "object",
-            "properties": {
-                "intent": {"enum": ["lookup", "traversal", "how_to", "impact"]},
-                "seed_entities": {"type": "array", "items": {"type": "string"}},
-                "relation_focus": {"type": "array", "items": {"type": "string"}},
-            },
-            "required": ["intent", "seed_entities"],
-            "additionalProperties": False,
-        }}},
-    )
-    return json.loads(next(b.text for b in resp.content if b.type == "text"))
-
-# analyze_intent("구독 갱신 시 인보이스 중복 발행을 어떻게 막나?") →
-# {"intent":"traversal","seed_entities":["renew_subscription","invoice"],
-#  "relation_focus":["triggers","calls","guarded_by"]}
-```
-
-### 9-2. Wiki Search — 정본 페이지를 하이브리드 검색
-
-여기서 RAG 기술을 **그대로 재사용**합니다. 단, 인덱싱 대상이 *청크*가 아니라 *정본 페이지*이고, **`status=canonical` 우선·`deprecated` 제외** 필터가 붙습니다. seed로 `idempotent-invoice-issuance` 정본 페이지가 잡힙니다.
-
-```python
-def wiki_search(seed_entities, k=3):
-    # 벡터 검색(임베딩) + 키워드(BM25) 하이브리드. canonical만.
-    hits = vector_store.search(seed_entities, k=k,
-                               filter={"status": "canonical"})
-    return [h.entity_id for h in hits]   # 예: ["concept.idempotent-invoice-issuance"]
-```
-
-### 9-3. Schema Traversal — RAG가 못 하는 그 단계
-
-검색으로 찾은 seed 노드에서 **관계 그래프를 BFS**로 따라가 이웃을 모읍니다. 이게 Fragmented Retrieval(Section 1-3)을 푸는 핵심입니다.
-
-> 💻 그래프 순회 (`networkx`)
-
-```python
-import json, networkx as nx
-
-def build_graph():
-    G = nx.DiGraph()
-    rels = json.load(open("wiki/schema/relationships.json"))["relationships"]
-    for r in rels:
-        G.add_edge(r["from"], r["to"], type=r["type"], note=r.get("note"))
-    return G
-
-def traverse(G, seeds, focus_types, max_hops=2):
-    """seed에서 focus 관계를 따라 max_hops까지 이웃 수집."""
-    collected, frontier = set(seeds), list(seeds)
-    for _ in range(max_hops):
-        nxt = []
-        for node in frontier:
-            for _, to, data in G.out_edges(node, data=True):
-                if not focus_types or data["type"] in focus_types:
-                    if to not in collected:
-                        collected.add(to); nxt.append(to)
-        frontier = nxt
-    return collected
-
-G = build_graph()
-nodes = traverse(G, ["knowledge.renew_subscription"],
-                 focus_types=["triggers","calls","implements","writes","guarded_by"])
-# → {renew_subscription, issue_invoice_task, InvoiceService,
-#    idempotent-invoice-issuance, Invoice, redis-idempotency-key}
-#   = 정확히 Section 1-3의 정답 경로!
-```
-
-📌 **여기가 분기점입니다.** RAG는 "renew와 비슷한 청크"만 줬습니다. Wiki는 "renew가 **triggers** 하는 것 → 그게 **calls** 하는 것 → 그게 **guarded_by** 하는 것"을 **결정론적으로** 따라갑니다. 유사도가 아니라 관계입니다.
-
-### 9-4. Context Construction — 정본+이웃을 압축 조립 (+ 캐시)
-
-순회로 모은 노드들의 **정본 페이지만** 이어 붙입니다(중복·deprecated 없음). 그리고 자주 안 바뀌는 정본 묶음을 **프롬프트 캐싱**으로 고정해 비용을 죽입니다.
-
-> 💻 컨텍스트 조립 + 프롬프트 캐싱 (Wiki가 비용을 잡는 지점)
-
-```python
-def build_context(node_ids) -> str:
-    pages = [load_canonical_page(nid) for nid in node_ids]   # status=canonical만
-    return "\n\n---\n\n".join(pages)                          # 보통 수백~1.5k 토큰
-
-def answer(question, node_ids):
-    wiki_context = build_context(node_ids)
-    resp = client.messages.create(
-        model="claude-opus-4-8",
-        max_tokens=1500,
-        system=[{
-            "type": "text",
-            "text": "다음 Wiki 지식만 근거로 답하라. 없으면 모른다고 하라. "
-                    "각 주장에 [출처: ...]를 달아라.\n\n" + wiki_context,
-            "cache_control": {"type": "ephemeral"},   # ← 정본 묶음을 캐시
-        }],
-        messages=[{"role": "user", "content": question}],
-    )
-    u = resp.usage
-    print(f"cache_read={u.cache_read_input_tokens} input={u.input_tokens}")
-    # 같은 도메인 후속 질문은 cache_read로 ≈0.1배 비용 → 에이전트 장기세션에서 결정적
-    return next(b.text for b in resp.content if b.type == "text")
-```
-
-> 🔧 **캐시 적중의 조건(중요):** 정본 페이지가 **byte 단위로 안정**해야 캐시가 맞습니다. Wiki 페이지에 타임스탬프·UUID를 본문에 박지 마세요(frontmatter에만). `last_verified` 같은 변동 필드는 캐시 프리픽스 *뒤*로 보내거나 본문에서 빼야 합니다 — 안 그러면 매 턴 캐시 미스(silent invalidator).
-
-### 9-5. Answer — 출처와 관계를 포함해
-
-최종 답(Section 3-2의 ✅ 답)은 **정본 진술 + 순회 경로 + 출처**를 담습니다. RAG의 3,200토큰·모순 답 대비, ~450토큰·정확·일관.
-
-🧪 **시나리오:** 신입 D의 에이전트가 같은 질문을 매 세션 던져도, 매번 **같은 정본 답**을 ~450토큰·캐시 read로 받습니다. Section 1-1의 "세션마다 80k 재발견"이 사라집니다.
-
-### 🧭 Section 9 한 줄 요약
-
-> Query = **Intent**(lookup/traversal/how-to/impact 분류) → **Wiki Search**(정본 페이지 하이브리드 검색, canonical 우선) → **Schema Traversal**(그래프 BFS로 관계 이웃 결정론적 수집 ← RAG가 못 하는 단계) → **Context Construction**(정본만 압축 + 프롬프트 캐싱) → **Answer**(출처·관계 포함). 정확·일관·저비용.
-
----
-
-<a id="section-10"></a>
-## Section 10. Lint Pipeline — Wiki를 썩지 않게
-
-Wiki는 **운영되는 시스템**이지 일회성 산출물이 아닙니다. 코드에 린터/CI가 있듯, Wiki에도 있어야 합니다. **Lint가 없는 Wiki는 6개월 안에 신뢰를 잃습니다**(Section 19의 모든 실패가 여기서 예방됩니다).
-
-```
-   wiki/ + schema/ ─► [Broken Link] [Missing Entity] [Duplicate] [Stale] [Schema Violation]
-                                        │
-                                        ▼
-                         통과 → 머지 허용 / 실패 → PR 차단·리뷰 큐
-```
-
-### 10-1. 다섯 가지 검사 — 왜 필요한가 + 코드
-
-**① Broken Link — `[[...]]`가 존재하지 않는 엔티티를 가리킴**
-왜: 코드가 리팩터돼 `InvoiceService`가 `BillingService`로 바뀌면, 그를 가리키던 링크가 깨집니다. Agent가 죽은 링크를 따라가면 헛돕니다.
-
-```python
-import re, json, pathlib
-
-def check_broken_links(entities: dict) -> list[str]:
-    ids = {e["id"] for e in entities}
-    titles = {e["title"]: e["id"] for e in entities}
-    errors = []
-    for page in pathlib.Path("wiki").rglob("*.md"):
-        for m in re.finditer(r"\[\[([^\]]+)\]\]", page.read_text(encoding="utf-8")):
-            ref = m.group(1)
-            if ref not in ids and ref not in titles:
-                errors.append(f"{page}: broken link [[{ref}]]")
-    return errors
-```
-
-**② Missing Entity — 관계가 가리키는 노드가 그래프에 없음** (`no-dangling-edge`)
-왜: relationships.json의 `to`가 entities.json에 없으면 순회가 끊깁니다.
-
-```python
-def check_missing_entities(entities, relationships) -> list[str]:
-    ids = {e["id"] for e in entities}
-    return [f"dangling: {r['from']} -{r['type']}-> {r['to']}"
-            for r in relationships if r["from"] not in ids or r["to"] not in ids]
-```
-
-**③ Duplicate Concept — 같은 개념의 정본이 둘 이상** (`single-canonical-per-concept`)
-왜: Dedup이 놓친 중복이 쌓이면 Section 1-2의 모순 답이 부활합니다. 임베딩 유사도로 정본끼리 비교.
-
-```python
-def check_duplicate_concepts(canonical_pages, embs, thr=0.93) -> list[str]:
-    errs = []
-    for i in range(len(embs)):
-        for j in range(i+1, len(embs)):
-            if cosine(embs[i], embs[j]) >= thr:
-                errs.append(f"중복 의심: {canonical_pages[i]} ≈ {canonical_pages[j]}")
-    return errs
-```
-
-**④ Stale Knowledge — Raw는 바뀌었는데 Wiki가 안 바뀜**
-왜: 가장 위험. `invoice.py`가 어제 커밋됐는데 Wiki `last_verified`가 한 달 전이면, Wiki가 **현실과 어긋났을 가능성**. git mtime과 비교.
-
-```python
-import subprocess
-from datetime import datetime, timezone
-
-def git_last_modified(path: str) -> datetime:
-    ts = subprocess.check_output(["git","log","-1","--format=%cI","--",path], text=True).strip()
-    return datetime.fromisoformat(ts)
-
-def check_stale(entities) -> list[str]:
-    errs = []
-    for e in entities:
-        src = e.get("source", {}).get("code", "").split("#")[0]
-        lv = e.get("metadata", {}).get("last_verified")
-        if src and lv and pathlib.Path(src).exists():
-            if git_last_modified(src) > datetime.fromisoformat(lv).replace(tzinfo=timezone.utc):
-                errs.append(f"STALE: {e['id']} — {src}가 last_verified({lv}) 이후 변경됨")
-    return errs
-```
-
-**⑤ Schema Violation — Constraints 위반** (Section 7-4)
-왜: 미등록 kind/관계 타입, 출처 없는 canonical 등 → Schema Drift의 싹. `validate_entities`(7-4) + 규칙 검사.
-
-### 10-2. CI 게이트로 — Wiki는 PR로 들어온다
-
-🧪 **시나리오:** `acme-billing`의 `.github/workflows/wiki-lint.yml`이 모든 PR에서 `wiki-lint`를 돌립니다.
-- 개발자가 `invoice.py`를 고치고 Wiki를 안 고치면 → **Stale**로 PR이 **빨간불**. "Wiki도 갱신하라"는 신호.
-- 유지보수 에이전트(Section 12)가 Wiki를 갱신했는데 죽은 링크를 남기면 → **Broken Link**로 차단.
-- 누가 임의 관계 타입 `mentions`를 쓰면 → **Schema Violation**으로 거부.
-
-```yaml
-# .github/workflows/wiki-lint.yml
-name: wiki-lint
-on: [pull_request]
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }       # git mtime(Stale 검사)용 전체 히스토리
-      - run: pip install -r wiki/requirements.txt
-      - run: python -m wikilint wiki/   # 위 5검사 통합 (Section 17에 전체 코드)
-```
-
-📌 **핵심:** Lint는 "Wiki를 코드처럼 다룬다"는 철학의 집행관입니다. **사람과 에이전트 양쪽이 만든 지식을 같은 기준으로 검증**합니다. Lint 없는 Wiki는 Section 19의 모든 실패(폭증·중복·환각·drift)에 무방비입니다.
-
-> ⚠️ **Stale은 경고로 시작하라.** 처음부터 Stale을 hard-fail로 걸면 정상 코드 변경마다 Wiki 강제 갱신이라 팀이 지칩니다. **신규 코드 변경은 경고(annotation), 핵심 엔티티(`owners`+높은 중심성)만 차단**으로 단계 도입하세요.
-
-### 🧭 Section 10 한 줄 요약
-
-> Lint = Wiki의 CI. **Broken Link·Missing Entity·Duplicate·Stale·Schema Violation** 5종을 검사해 PR 게이트로 건다. Wiki를 *코드처럼* 다뤄, 사람·에이전트가 만든 지식을 같은 기준으로 검증한다. Lint 없는 Wiki는 반드시 썩는다(Section 19). Stale은 경고→핵심만 차단으로 단계 도입.
-
----
-<a id="section-11"></a>
-## Section 11. Agent-Driven Wiki Construction — Agent가 Wiki를 만든다
-
-지금까지의 파이프라인을 **에이전트가 자율로 돌려** Wiki를 처음부터 짓는 과정입니다.
-
-```
-   새 Repository ─► Agent 분석 ─► Knowledge 추출 ─► Wiki 생성 ─► Schema 생성 ─► Lint ─► PR 생성
-   (또는 기존)     (구조·진입점·   (Section 8       (Concept/     (entities/    (Sec.10) (사람 리뷰)
-                   의존성 파악)     Extract)        Knowledge)    relationships)
-```
-
-### 11-1. 왜 Agent가 만드나 — 규모와 지속성
-
-수백 개 엔티티의 Wiki를 사람이 손으로 쓰는 건 불가능하고, 써도 곧 낡습니다. **Agent가 초안을 짓고 사람이 정본을 승인**하는 분업이 정석입니다. Agent의 강점은 "코드 전체를 읽고 관계를 뽑는 노동"이고, 사람의 강점은 "이게 진짜 정본인가, 출처가 맞나"의 판단입니다.
-
-### 11-2. 단계별 — `acme-billing` 부트스트랩
-
-**① Agent 분석:** 진입점(`app/main.py`의 라우터 등록), 디렉터리 구조, 의존성(`pyproject.toml`), ADR 목록을 먼저 훑어 *지도*를 만듭니다. "이건 FastAPI 결제 서비스, 핵심 흐름은 구독·인보이스·웹훅."
-
-**② Knowledge 추출:** Section 8의 Extract를 모든 코드 유닛 + ADR + 핵심 문서에 적용. 엔티티·관계·정본 진술 후보 생성.
-
-**③~⑤ Wiki/Schema 생성 + Lint:** 페이지를 write, 그래프 생성, Lint 통과 확인.
-
-**⑥ PR 생성:** `wiki/` 전체를 PR로. **`confidence`가 낮은 페이지에 리뷰 표시**를 달아 사람의 시선을 유도.
-
-> 💻 Construction 오케스트레이션 (드라이버; 추출·Lint는 Section 8·17 재사용)
-
-```python
-def bootstrap_wiki(repo_root: str):
-    units = list(iter_code_units(repo_root)) + list(iter_adrs(repo_root))
-    all_entities, all_rels = [], []
-    for u in units:
-        ex = extract(u)                          # Section 8-1 (LLM 구조화 추출)
-        for e in ex["entities"]:
-            e.setdefault("metadata", {})["confidence"] = score_confidence(u, e)
-            e["source"] = {u["src_kind"]: u["raw_id"]}     # provenance 강제
-        all_entities += ex["entities"]
-        all_rels += ex["relationships"]
-
-    entities = normalize_and_dedup(all_entities)  # Section 8-2~8-4
-    write_wiki_pages(entities, all_rels)          # Section 8-5
-    regenerate_schema(entities, all_rels)
-    errors = run_wiki_lint("wiki/")               # Section 10
-    if errors:
-        raise SystemExit("\n".join(errors))       # 깨진 Wiki는 PR 금지
-    open_pr(branch="wiki/bootstrap",
-            title="Bootstrap LLM Wiki",
-            review_flags=[e["id"] for e in entities
-                          if e["metadata"]["confidence"] < 0.7])  # 사람 시선 유도
-```
-
-🧪 **시나리오 (Claude Code로):** 팀 리드가 Claude Code에서 `/wiki bootstrap`(팀이 만든 커스텀 워크플로) 또는 평문으로 *"이 레포를 분석해서 `wiki/` 초안을 만들고, 확신 낮은 페이지는 표시해서 PR 올려"* 라고 시킵니다. Claude Code는 `glob`/`grep`/`read`로 레포를 훑고, 위 단계를 수행해 PR을 엽니다. 리드는 **20개 페이지 중 confidence<0.7인 4개만** 집중 리뷰합니다.
-
-⚠️ **함정 (첫 부트스트랩의 환각):** 처음엔 ADR·Slack 같은 서사에서 Agent가 관계를 과잉 생성합니다. 방어: (1) 1차 부트스트랩은 **코드 Raw만**으로(사실 밀도 높음), 서사 Raw는 2차에 낮은 confidence로, (2) `single-canonical-per-concept` Lint로 과잉 정본 차단, (3) **사람 승인 없이는 어떤 페이지도 `canonical`이 안 됨**(생성 시 `draft`).
-
-### 🧭 Section 11 한 줄 요약
-
-> Construction = **분석→추출→Wiki/Schema 생성→Lint→PR**. Agent가 초안(`draft`)을 짓고 사람이 정본(`canonical`)을 승인하는 분업. confidence로 리뷰 우선순위를 매기고, 출처를 강제하고, Lint를 PR 전 게이트로 둬 환각을 막는다.
-
----
-
-<a id="section-12"></a>
-## Section 12. Agent-Driven Wiki Maintenance — 커밋이 Wiki를 갱신한다
-
-Construction이 1회성이라면, Maintenance는 **매 커밋마다** 도는 지속 과정입니다. Wiki가 낡지 않는 비결.
-
-```
-   새 Commit ─► Wiki 영향 분석 ─► Page 업데이트 ─► Schema 수정 ─► Lint ─► 승인(머지)
-   (PR)        (어느 페이지가     (변경분만        (그래프       (Sec.10)
-               영향받나?)         재-Ingest)       갱신)
-```
-
-### 12-1. 핵심은 "영향 분석" — 전체 재빌드 금지
-
-수만 엔티티 Wiki를 매 커밋마다 통째로 다시 빌드하면 비싸고 느립니다. **바뀐 Raw가 건드리는 페이지만** 골라 갱신해야 합니다. 이를 위해 **역 출처 인덱스(reverse provenance index)** 를 유지합니다: `raw_id → 영향받는 wiki 페이지`.
-
-> 💻 커밋 diff → 영향받는 Wiki 페이지 (증분 갱신)
-
-```python
-import subprocess, json
-
-def changed_files(base="origin/main", head="HEAD") -> list[str]:
-    out = subprocess.check_output(["git","diff","--name-only",f"{base}...{head}"], text=True)
-    return [l for l in out.splitlines() if l]
-
-def affected_wiki_pages(changed: list[str]) -> set[str]:
-    # 빌드 시 만들어 둔 역인덱스: { "app/services/invoice.py": ["wiki/knowledge/InvoiceService.md", ...] }
-    index = json.load(open("wiki/.provenance_index.json"))
-    pages = set()
-    for f in changed:
-        pages.update(index.get(f, []))
-    return pages
-
-# 예: app/tasks/billing.py 변경 + ADR-021 추가 →
-#     {InvoiceService.md, renew_subscription.md, idempotent-invoice-issuance.md}
-```
-
-### 12-2. 관통 예시의 진짜 갱신 — BackgroundTasks → Celery (ADR-021)
-
-🧵 `acme-billing`이 인보이스 발행을 **FastAPI `BackgroundTasks` → Celery로 이전**하는 PR이 올라옵니다(ADR-021). 이게 Wiki에 어떻게 전파되는지가 Maintenance의 정수입니다.
-
-🧪 **시나리오 (Claude Code 유지보수 에이전트):**
-1. **영향 분석:** diff에 `app/tasks/billing.py`(신규)·`app/api/subscriptions.py`(수정)·`ADR-021`(신규). 역인덱스로 `renew_subscription`, `InvoiceService`, `idempotent-invoice-issuance` 페이지가 영향.
-2. **Page 업데이트:** 에이전트가 변경분을 재-Extract해서:
-   - `renew_subscription` 관계: `triggers → issue_invoice_task(Celery)` 로 변경 (구 BackgroundTasks 관계 제거).
-   - 새 Knowledge Page `issue_invoice_task.md` 생성(`draft`).
-   - `idempotent-invoice-issuance` 페이지의 "동작" 섹션을 Celery 흐름으로 갱신.
-   - **옛 진술을 지우지 않고** `superseded_by`로 표시 + ADR-021을 `supersedes` 엣지로.
-3. **Schema 수정:** relationships.json에서 `renew → BackgroundTasks 핸들러` 엣지 제거, `renew → issue_invoice_task` 추가, `ADR-021 supersedes 옛방식` 추가.
-4. **Lint:** Stale 해소 확인, Broken Link(옛 핸들러 참조 잔존?) 검사. Notion 온보딩의 "BackgroundTasks" 설명이 이제 **모순**으로 떠 리뷰 큐로.
-5. **승인:** 에이전트가 **코드 PR과 같은 PR에 Wiki diff를 포함**시켜 올림. 리뷰어는 코드와 지식을 함께 승인. 머지 시 `draft → canonical` 승격.
-
-📌 **결정적 패턴: "코드 변경과 Wiki 변경은 같은 PR."** 이래야 둘이 영원히 동기화됩니다. CI의 Stale Lint(Section 10-1④)가 "코드만 고치고 Wiki 안 고친" PR을 빨간불로 막아 이 습관을 **강제**합니다.
-
-> 🔧 **실무 팁:** 유지보수 에이전트를 **PR 훅**(GitHub Actions의 `pull_request` 이벤트)으로 자동 기동하되, **자동 머지는 금물**. 에이전트는 Wiki diff를 *제안*하고, 사람이 *승인*합니다(Section 18 HITL). 자동 머지는 Schema Drift·환각이 무인 누적되는 지름길입니다(Section 19).
-
-### 🧭 Section 12 한 줄 요약
-
-> Maintenance = 매 커밋의 **영향분석(역 출처 인덱스로 변경 페이지만)→증분 갱신→Schema 수정→Lint→승인**. 옛 사실은 지우지 말고 `superseded`로 진화 기록. 철칙: **"코드 변경과 Wiki 변경은 같은 PR"**, Stale Lint가 이를 강제, 자동 머지는 금지(사람 승인).
-
----
-
-<a id="section-13"></a>
-## Section 13. 실무 Demo 1 — FastAPI 백엔드(`acme-billing`)에 Wiki 깔기
-
-지금까지의 전부를 **하나의 흐름**으로 봅니다. 스택: **FastAPI + SQLAlchemy + Alembic + Redis + Claude Code.**
-
-### 13-1. Day 0 — 부트스트랩 (Section 11 적용)
-
-🧪 팀 리드가 Claude Code에서:
-
-```
-> 이 레포(acme-billing)를 분석해서 wiki/ 초안을 만들어줘.
-  - app/** 코드는 AST 단위로, docs/adr/** 는 결정으로 추출
-  - Concept/Knowledge 페이지 분리, 관계는 schema vocabulary만 사용
-  - 모든 정본 진술에 source 강제, 확신 낮은 건 draft로
-  - 끝나면 wiki-lint 돌리고 PR 올려
-```
-
-Claude Code가 만든 산출물(발췌) — 실제 Knowledge Page:
-
-> 💻 `wiki/knowledge/renew_subscription.md` (생성 결과)
-
-```markdown
----
-id: knowledge.renew_subscription
-type: knowledge
-entity_kind: http_endpoint
-title: POST /subscriptions/{id}/renew
-status: draft            # ← 사람 승인 전
-confidence: 0.86
-owners: [team-billing]
-last_verified: 2026-06-18
-sources:
-  - code: app/api/subscriptions.py#renew_subscription
-related:
-  - uses_pattern: "[[dependency-injection]]"
-  - triggers: "[[issue_invoice_task]]"
-  - reads: "[[Subscription]]"
----
-
-## 무엇인가
-구독을 다음 결제 주기로 갱신하는 엔드포인트. 인증된 Customer만 호출 가능.
-
-## 시그니처
-`POST /subscriptions/{id}/renew` → 202 Accepted (인보이스 발행은 비동기)
-
-## 동작
-1. `get_db`,`get_current_customer`를 [[dependency-injection]]로 주입받음
-2. `SubscriptionService.renew(sub)` 로 다음 period 계산·상태 갱신
-3. `issue_invoice_task.delay(sub.id, period)` 로 [[issue_invoice_task]] enqueue → 202 반환
-
-## 주의
-- 인보이스는 **동기 반환되지 않음**(202). 중복 발행 방지는 [[idempotent-invoice-issuance]] 참조.
-```
-
-리드는 PR에서 confidence 0.86(괜찮음)을 확인하고, `draft` 4개만 손봐 승인 → `canonical` 승격.
-
-### 13-2. Day 30 — Alembic 마이그레이션이 Wiki를 건드림
-
-🧵 누가 `migration 0042`로 `Invoice`에 `idempotency_key` 컬럼을 추가합니다. **추적·감사용**(어느 멱등 키로 발행됐는지 기록)이지 **unique 제약이 아닙니다** — 경합 차단은 여전히 Redis SETNX의 몫이고, DB unique는 ADR-017에서 폐기됐습니다.
-
-🧪 Maintenance 에이전트(Section 12)가 PR 훅으로 기동:
-- 영향: `Invoice.md`(컬럼 추가), `idempotent-invoice-issuance.md`(저장 방식 명확화).
-- `Invoice.md`의 "스키마" 섹션에 `idempotency_key: str | None (non-unique, 추적용)` 추가, `migration: 0042`를 source에 추가. **정본 진술에 "이 컬럼은 가드가 아니라 기록"이라고 명시** → 미래의 에이전트가 unique 제약으로 "개선"하려다 ADR-017의 경합 500을 재현하는 일을 막음.
-- Lint: Stale 해소. PR에 코드+Wiki diff 동봉.
-
-### 13-3. Day 45 — 관통 질문 재방문 (성과 측정)
-
-신입 D가 Claude Code에 🧵 "구독 갱신 시 인보이스 중복 발행 어떻게 막아?" 를 물음. 에이전트는 `wiki query`(Section 9)로:
-
-```
-Intent: traversal (seed: renew_subscription, invoice)
-Traverse: renew_subscription -triggers-> issue_invoice_task -calls-> InvoiceService
-          -implements-> idempotent-invoice-issuance -guarded_by-> redis-idempotency-key
-Context: 위 5개 정본 페이지 (~1.2k 토큰, 캐시 read)
-Answer: "renew는 202로 비동기 발행을 트리거하고, 멱등은 Redis SETNX
-         idem:invoice:{sub_id}:{period}로 보장됩니다(ADR-017). period는 UTC 월초…"
-```
-
-**측정 (Before/After):**
-
-| | RAG (Day 0) | LLM Wiki (Day 45) |
-|---|---|---|
-| 답 정확성 | ❌ 폐기안·옛 설명 혼입 | ✅ 정본·관계·출처 |
-| 토큰/질문 | ~3,200 | ~1,200 (+ 캐시 read) |
-| 세션 간 일관성 | 출렁임 | 동일 |
-| 신입 온보딩 | 코드 재독 | Wiki 1페이지 |
-
-### 🧭 Section 13 한 줄 요약
-
-> FastAPI 백엔드 Demo: **Day0 부트스트랩(draft→승인)**, **Day30 마이그레이션이 증분 갱신을 유발**, **Day45 관통 질문이 정본·관계·저토큰으로 해결**. 코드와 Wiki가 같은 PR로 함께 진화하며, RAG 대비 정확성·일관성·비용이 측정 가능하게 개선된다.
-
----
-
-<a id="section-14"></a>
-## Section 14. 실무 Demo 2 — 대규모 GitHub 모노레포
-
-`acme-billing`은 작았습니다. 이제 **수백만 줄·수십 패키지**의 모노레포(예: `acme-platform/` 안에 billing·auth·notifications·web·shared-libs)를 봅니다. 규모가 모든 것을 바꿉니다.
-
-### 14-1. 규모가 만드는 3대 문제와 해법
-
-| 문제 | 해법 |
-|---|---|
-| **컨텍스트 초과** — 레포가 1M에 안 들어감 | 패키지 단위로 **Wiki 샤딩** (`wiki/billing/`, `wiki/auth/`, …) + 상위 인덱스 |
-| **추출 비용 폭증** — 수만 유닛 × LLM 호출 | **모델 계층화**(상세 추출 Opus, 대량 1차 추출 Sonnet/Haiku) + **Batch API**(50%↓) + **증분만**(Section 12) |
-| **교차 패키지 의존** — billing이 auth를 import | 관계 엣지가 **패키지 경계를 넘음** → 의존성 그래프가 Wiki의 핵심 산출물 |
-
-> 💻 대량 추출을 **Batch API**로 (지연 비민감 1차 추출, 50% 비용)
-
-```python
-from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
-from anthropic.types.messages.batch_create_params import Request
-
-reqs = [
-    Request(custom_id=u["raw_id"],
-            params=MessageCreateParamsNonStreaming(
-                model="claude-sonnet-4-6",      # 대량 1차 추출은 Sonnet으로 비용·속도 균형
-                max_tokens=2000,
-                system="코드에서 엔티티/관계만 추출. 추측 금지.",
-                messages=[{"role":"user","content": u["src"]}],
-            ))
-    for u in iter_code_units("acme-platform/billing")   # 수천 유닛
-]
-batch = client.messages.batches.create(requests=reqs)
-# 완료 후 결과를 normalize→dedup→shard별 wiki write (Section 8)
-```
-
-> 🔧 모델 선택 원칙: **정확도가 Wiki 품질을 좌우**하므로 핵심 엔티티·관계는 `claude-opus-4-8`, 광범위 1차 스캔은 `claude-sonnet-4-6`, 단순 분류(intent 등)는 `claude-haiku-4-5`. 비용은 Batch + 증분으로 잡습니다.
-
-### 14-2. 아키텍처·의존성 분석 — Wiki가 빛나는 지점
-
-모노레포에서 Agent가 만드는 가장 가치 있는 산출물은 **아키텍처 Concept Page + 의존성 그래프**입니다.
-
-> 💻 패키지 의존성 그래프를 Schema 엣지로 (예: import 분석)
-
-```python
-def package_dependency_edges(root):
-    edges = []
-    for unit in iter_code_units(root):
-        pkg = unit["file"].split("/")[1]              # billing / auth / ...
-        for imp in find_imports(unit["src"]):         # ast.Import / ImportFrom
-            dep_pkg = resolve_package(imp)
-            if dep_pkg and dep_pkg != pkg:
-                edges.append({"from": f"package.{pkg}", "type": "depends_on",
-                              "to": f"package.{dep_pkg}"})
-    return dedup(edges)
-# → package.billing -depends_on-> package.auth, package.shared-libs ...
-```
-
-🧪 **시나리오 (영향 범위 질문):** 플랫폼 팀이 `shared-libs`의 `Money` 타입을 바꾸려 합니다. Claude Code에 *"Money 타입을 바꾸면 어디가 깨지나?"* (intent=**impact**). Query 엔진이 `package.* -depends_on-> shared-libs` + `* -reads/writes-> Money`를 **역방향 순회**해 영향 패키지·엔티티 목록을 출력. RAG로는 절대 못 하는, 모노레포에서 가장 자주 필요한 질문입니다.
-
-⚠️ **함정 (Wiki 폭증):** 모노레포에서 "모든 함수에 페이지"를 만들면 수만 페이지로 폭증합니다(Section 19). **선택적 추출**: 공개 API·교차 패키지 경계·핵심 도메인 엔티티만 Knowledge Page로, 내부 헬퍼는 페이지 없이 코드(Raw)에 맡깁니다. "Wiki는 코드의 복제가 아니라 *자명하지 않은 것*의 정본"이라는 Section 6 원칙을 규모에서 지키는 게 관건.
-
-### 🧭 Section 14 한 줄 요약
-
-> 모노레포는 규모가 문제: **샤딩(패키지별 Wiki)**, **모델 계층화+Batch+증분**으로 비용·컨텍스트 해결, **의존성 그래프**가 핵심 산출물(→ impact 질문). 폭증을 막으려면 *모든 것*이 아니라 **공개 API·경계·핵심 도메인만** 페이지화한다.
-
----
-
-<a id="section-15"></a>
-## Section 15. 실무 Demo 3 — 엔터프라이즈 문서 통합 (Notion·ADR·Slack·API Docs)
-
-이번엔 **코드가 아니라 회사의 흩어진 문서**를 하나의 Wiki로 통합합니다. 가장 어렵고 가장 가치 있는 케이스 — 지식이 6개 시스템에 중복·모순된 채 흩어져 있으니까요.
-
-### 15-1. 소스 커넥터 — 이질적 Raw를 한 형식으로
-
-각 소스를 공통 Raw 단위(`{raw_id, kind, text, source_meta}`)로 끌어옵니다.
-
-> 💻 멀티소스 커넥터 (공통 인터페이스)
-
-```python
-def load_notion(db_id):    # notion-client
-    return [{"raw_id": f"notion://{p['id']}", "kind": "doc",
-             "text": page_to_md(p), "source_meta": {"url": p["url"], "edited": p["last_edited_time"]}}
-            for p in notion.databases.query(db_id)["results"]]
-
-def load_slack(channel):   # slack_sdk; 사고·결정 스레드만 선별
-    return [{"raw_id": f"slack://{channel}/{t['ts']}", "kind": "thread",
-             "text": thread_text(t), "source_meta": {"channel": channel, "ts": t["ts"]}}
-            for t in important_threads(channel)]
-
-def load_openapi(path):    # API 계약
-    spec = json.load(open(path))
-    return [{"raw_id": f"openapi://{p}", "kind": "external_contract",
-             "text": endpoint_md(p, op), "source_meta": {"path": p}}
-            for p, op in iter_paths(spec)]
-
-raw = load_notion(BILLING_DB) + load_slack("#billing-incidents") + load_openapi("openapi.json")
-```
-
-### 15-2. 교차 소스 Dedup·모순 해소 — 이 데모의 핵심
-
-🧵 같은 "멱등 인보이스" 사실이 **코드(진실)·ADR-017(결정)·Slack(사고)·Notion(옛 온보딩, 틀림)** 에 있습니다. Ingest의 Dedup(Section 8-4)이 3분기합니다:
-
-- 코드 + ADR-017 → **동일/보완** → 한 정본 페이지로 흡수, 둘 다 `source`에.
-- Slack 사고 → **맥락 추가** → 정본 페이지의 `incident` 출처로.
-- Notion "BackgroundTasks" → **모순** → 자동 흡수 금지, **리뷰 큐**. 사람이 "Notion이 낡음" 확인 → Notion 페이지에 `deprecated` + 정본으로 링크. (이상적으로는 Notion 원문도 갱신하도록 알림.)
-
-📌 **출처의 권위 순위(authority ranking)** 를 정해 두면 모순 해소가 빨라집니다. 보통 **코드 > ADR > API Docs > Slack > Notion** (실행되는 것 > 결정 > 계약 > 대화 > 위키). 이건 회사마다 다르니 거버넌스로 합의(Section 18).
-
-### 15-3. 접근 권한 — 엔터프라이즈의 필수
-
-회사 문서는 부서·등급별 접근 권한이 있습니다. Wiki에 `visibility` 메타데이터를 박고, Query 시 **사용자 권한으로 필터**합니다(Section 7-3).
-
-> 💻 권한 필터링된 검색
-
-```python
-def wiki_search_scoped(seeds, user, k=3):
-    return vector_store.search(seeds, k=k, filter={
-        "status": "canonical",
-        "visibility": {"$in": visible_scopes(user)},   # 예: ["public","team-billing"]
-    })
-# 인사·재무 정본 페이지는 권한 없는 에이전트 세션에 노출되지 않음
-```
-
-⚠️ **함정:** 접근제어를 Query 단계에만 두면, 컨텍스트 조립·캐싱에서 새어나갈 수 있습니다. **검색·순회·컨텍스트·캐시 키 전 단계**에서 `visibility`를 일관 적용하세요. 권한 다른 사용자가 같은 캐시 프리픽스를 공유하지 않게 캐시 키에 scope를 포함.
-
-🧪 **시나리오:** 결제팀 에이전트가 "환불 정책"을 물으면 `team-billing`+`public` 정본만 검색되고, 재무팀 전용 "수익인식 정책"은 안 보입니다. 같은 질문을 재무팀 에이전트가 하면 둘 다 보입니다 — **같은 Wiki, 권한별 다른 뷰.**
-
-### 🧭 Section 15 한 줄 요약
-
-> 엔터프라이즈 통합 = **멀티소스 커넥터(Notion·Slack·OpenAPI·ADR)로 공통 Raw화 → 교차소스 Dedup/모순해소(권위 순위: 코드>ADR>API>Slack>Notion, 모순은 사람) → 권한(`visibility`)을 전 단계 일관 적용**. 가장 어렵지만 "흩어진 사내 지식의 단일 정본화"라는 최대 가치를 낸다.
-
----
-<a id="section-16"></a>
-## Section 16. Claude Code / Codex / Cursor 에서의 활용 (가장 중요)
-
-이론을 실전 도구에 연결합니다. 코딩 에이전트가 Wiki를 **읽고·검색하고·수정하고·활용해 더 정확한 코드를 쓰는** 네 가지를 `acme-billing`/Claude Code 기준으로 봅니다.
-
-### 16-1. Agent가 Wiki를 **읽는** 법 — 진입점 + 점진적 공개
-
-에이전트는 Wiki 전체를 컨텍스트에 욱여넣지 않습니다(그럼 Context Explosion 부활). 대신 **진입점 파일**이 "Wiki가 여기 있고, 이렇게 쓰라"고 알려주고, 에이전트가 **필요한 페이지만** 읽습니다(progressive disclosure).
-
-> 💻 `CLAUDE.md` (레포 루트) — Claude Code의 진입점
-
-```markdown
-## 지식 베이스 (LLM Wiki)
-이 레포의 정본 지식은 `wiki/`에 있다. 코드를 추론하기 전에 관련 정본 페이지를 먼저 읽어라.
-
-- 개념/패턴: `wiki/concepts/` (예: idempotent-invoice-issuance, dependency-injection)
-- 구체 엔티티: `wiki/knowledge/` (서비스/엔드포인트/모델별 1페이지)
-- 관계 그래프: `wiki/schema/relationships.json` — "무엇이 무엇을 호출/트리거하나"는 여기서 순회
-- 검색이 필요하면 `wiki query "<질문>"` (MCP 도구, 아래) 를 써라. 코드 전체를 다시 읽지 마라.
-
-규칙: 정본 페이지와 코드가 충돌하면 코드(Raw)가 진실이다. 그 경우 Wiki Stale을 보고하라.
-```
-
-- **Codex** → `AGENTS.md`에 같은 내용. **Cursor** → `.cursor/rules/wiki.mdc`에 같은 규칙. 진입점 파일명만 다를 뿐 패턴은 동일합니다.
-
-📌 핵심: 진입점은 **"전체 지식"이 아니라 "지식으로 가는 지도 + 사용 규칙"**. 실제 페이지는 에이전트가 그때그때 `read`로 끌어옵니다. 이게 Knowledge Compression이 런타임에 작동하는 방식.
-
-### 16-2. Agent가 Wiki를 **검색하는** 법 — MCP 도구로 Query 엔진 노출
-
-Section 9의 Query 엔진을 **MCP 서버**로 감싸면, Claude Code/Cursor가 `wiki_query`를 일반 도구처럼 호출합니다. 에이전트가 직접 벡터검색·그래프순회를 하는 게 아니라, **검증된 Query 엔진에 위임**합니다.
-
-> 💻 Wiki Query를 MCP 도구로 (에이전트가 호출) — 핵심 핸들러
-
-```python
-# wiki_mcp_server.py  (MCP 서버; Claude Code가 도구로 인식)
-# tool: wiki_query(question) -> {answer, sources, traversed_path}
-def handle_wiki_query(question: str) -> dict:
-    intent = analyze_intent(question)                 # Section 9-1
-    seeds  = wiki_search(intent["seed_entities"])      # 9-2
-    nodes  = traverse(G, seeds, intent.get("relation_focus", []))  # 9-3
-    ctx    = build_context(nodes)                      # 9-4 (정본만)
-    return {
-        "answer": answer(question, nodes),             # 9-5
-        "sources": [page_source(n) for n in nodes],    # provenance
-        "traversed_path": list(nodes),                 # 관계 경로(설명가능성)
-    }
-```
-
-🧪 **시나리오:** Claude Code가 `acme-billing`에서 환불 기능을 구현하다 *"환불 시 인보이스 상태를 어떻게 바꿔야 하지?"* 가 필요하면, 코드를 200파일 뒤지는 대신 `wiki_query("환불 시 인보이스 상태 전이")`를 호출 → 정본 답 + `Invoice` 상태머신 페이지 + 출처를 ~1k 토큰에 받음.
-
-> 🔧 대안(도구 없이): MCP가 부담이면 `wiki query`를 단순 CLI로 만들고 `CLAUDE.md`에서 "Bash로 `python -m wiki query …`를 호출하라"고 안내해도 됩니다. 에이전트는 bash로 호출하고 결과를 읽습니다.
-
-### 16-3. Agent가 Wiki를 **수정하는** 법 — 코드와 같은 PR
-
-Section 12 그대로입니다. 에이전트가 코드를 고치면 **같은 PR에 Wiki diff**를 넣습니다. `CLAUDE.md`에 이 의무를 박아 둡니다:
-
-```markdown
-## Wiki 갱신 의무
-정본 엔티티(`wiki/knowledge|concepts`에 페이지가 있는 것)의 동작/관계/불변식을 바꾸는 코드를
-수정하면, 같은 PR에서 해당 Wiki 페이지도 갱신하라. 옛 사실은 삭제하지 말고 superseded로 표시.
-PR 전 `python -m wikilint wiki/` 가 통과해야 한다.
-```
-
-CI의 Stale Lint(Section 10)가 이 의무를 **강제**합니다 — 안 지키면 PR 빨간불.
-
-### 16-4. Agent가 Wiki로 **더 정확한 코드를 쓰는** 법
-
-이게 최종 목적입니다. 정본 불변식을 알고 코딩하면 환각·버그가 줄어듭니다.
-
-🧵 **Before (Wiki 없음):** Claude Code가 환불 기능을 짜며 인보이스를 `db.add(Invoice(...))`로 **직접 생성** → 멱등 우회 → Section 1-2의 중복 인보이스 버그 재발.
-
-**After (Wiki 있음):** `CLAUDE.md` 규칙대로 먼저 `wiki_query`/`idempotent-invoice-issuance` 페이지를 읽음 → "인보이스는 반드시 `InvoiceService.issue_invoice`로, period당 1건" 불변식을 알게 됨 → `InvoiceService`를 통해 생성하는 올바른 코드를 작성. **정본 지식이 가드레일**로 작동.
-
-📌 **핵심:** Wiki는 단순 검색 가속이 아니라 **에이전트의 코드 품질 가드레일**입니다. "이 코드베이스에서 옳은 방법"을 정본으로 박아 두면, 에이전트가 매번 그것을 따릅니다 — 팀의 컨벤션·불변식이 모든 에이전트 세션에 일관 적용됩니다.
-
-### 🧭 Section 16 한 줄 요약
-
-> 코딩 에이전트는 **(1) 진입점(`CLAUDE.md`/`AGENTS.md`/cursor rules)으로 Wiki를 발견·필요 페이지만 읽고, (2) `wiki_query` MCP/CLI로 검증된 Query 엔진에 검색을 위임하고, (3) 코드와 같은 PR로 Wiki를 수정(Stale Lint가 강제), (4) 정본 불변식을 가드레일 삼아 더 정확한 코드를 쓴다.** Wiki는 검색 가속이자 코드 품질 가드레일.
-
----
-
-<a id="section-17"></a>
-## Section 17. 구현 예제 (Python) — 바닥부터 조립
-
-앞 섹션들에서 조각으로 본 코드를 **네 개의 실행 가능한 프로그램**으로 묶습니다. 프레임워크 없이 표준 라이브러리 + `anthropic` + `networkx`/`jsonschema`로 — Section 9의 RAG 교육이 마지막에 "프레임워크 없이 바닥부터"를 보여줬던 것과 같은 의도입니다.
-
-### 예제 1 — 간단한 Wiki Generator (Raw 1개 → 페이지 1개)
-
-```python
-# wiki_gen.py — 코드 유닛 하나에서 Knowledge Page 한 장 생성
-import anthropic, json, pathlib
-client = anthropic.Anthropic()
-
-def generate_page(unit: dict) -> str:
-    ex = extract(unit)                     # Section 8-1 (구조화 추출)
-    e = ex["entities"][0]
-    related = "\n".join(f'  - {r["type"]}: "[[{r["to"].split(".")[-1]}]]"'
-                        for r in ex["relationships"] if r["from"] == e["id"])
-    page = f"""---
-id: {e['id']}
-type: knowledge
-entity_kind: {e['kind']}
-title: {e['title']}
-status: draft
-confidence: {score_confidence(unit, e):.2f}
-last_verified: {today()}
-sources:
-  - code: {unit['raw_id']}
-related:
-{related}
----
-
-## 무엇인가
-{e['canonical_statement']}
-
-## 불변식
-""" + "\n".join(f"- {inv}" for inv in e.get("invariants", []))
-    out = pathlib.Path(f"wiki/knowledge/{e['title']}.md")
-    out.write_text(page, encoding="utf-8")
-    return str(out)
-```
-
-> **이 코드가 하는 일:** Raw 유닛 → LLM 구조화 추출 → frontmatter(정본/관계/출처) + 본문(정본 진술·불변식) 페이지로 직렬화. `status:draft`/`confidence`로 **사람 승인 대기**, `sources`로 **provenance 강제**.
-
-### 예제 2 — Wiki Linter (Section 10 통합 실행기)
-
-```python
-# wikilint/__main__.py — python -m wikilint wiki/
-import sys, json, pathlib
-
-def main(wiki_dir: str):
-    entities = json.load(open(f"{wiki_dir}/schema/entities.json"))["entities"]
-    rels     = json.load(open(f"{wiki_dir}/schema/relationships.json"))["relationships"]
-    errors = []
-    errors += validate_entities(entities)              # Schema Violation (7-4)
-    errors += check_missing_entities(entities, rels)   # Missing Entity (10-1②)
-    errors += check_broken_links(entities)             # Broken Link (10-1①)
-    errors += check_duplicate_concepts(*load_canonical_embeddings(wiki_dir))  # Duplicate (③)
-    errors += check_stale(entities)                    # Stale (④)
-    if errors:
-        print("\n".join(f"✗ {e}" for e in errors)); sys.exit(1)
-    print("✓ wiki-lint passed"); sys.exit(0)
-
-if __name__ == "__main__":
-    main(sys.argv[1])
-```
-
-> **이 코드가 하는 일:** 5개 검사를 한 번에 돌려 비-0 종료로 **CI를 빨간불** 만듦. Section 10-2의 GitHub Actions가 이걸 호출. *사람과 에이전트가 만든 지식*을 동일 기준으로 검증하는 게이트.
-
-### 예제 3 — Agent Query Engine (Section 9 통합)
-
-```python
-# wiki_query.py — python -m wiki_query "구독 갱신 시 인보이스 중복 막는 법?"
-import sys, json, networkx as nx
-
-def query(question: str) -> dict:
-    intent = analyze_intent(question)                          # 9-1
-    seeds  = wiki_search(intent["seed_entities"])              # 9-2
-    G      = build_graph()                                     # 9-3
-    nodes  = traverse(G, seeds, intent.get("relation_focus", []))
-    text   = answer(question, nodes)                           # 9-4~9-5 (+캐시)
-    return {"answer": text, "path": list(nodes),
-            "sources": [n for n in nodes]}
-
-if __name__ == "__main__":
-    print(json.dumps(query(sys.argv[1]), ensure_ascii=False, indent=2))
-```
-
-> **이 코드가 하는 일:** intent 분류 → 정본 검색 → **그래프 순회**(RAG와의 결정적 차이) → 캐시된 정본 컨텍스트로 출처 포함 답. Section 16-2의 MCP 서버가 이 함수를 감쌈.
-
-### 예제 4 — Repository → Wiki 자동 생성 (Section 11·8 통합 + PR)
-
-```python
-# build_wiki.py — 레포 전체를 Wiki로 (부트스트랩/전체 재빌드)
-import subprocess
-
-def build_wiki(repo_root: str, branch="wiki/auto"):
-    units = list(iter_code_units(repo_root)) + list(iter_adrs(repo_root))  # 5-1
-    ents, rels = [], []
-    for u in units:                                   # 대규모면 batches로 (14-1)
-        ex = extract(u)                               # 8-1
-        for e in ex["entities"]:
-            e["source"] = {u["src_kind"]: u["raw_id"]}
-            e.setdefault("metadata", {})["confidence"] = score_confidence(u, e)
-        ents += ex["entities"]; rels += ex["relationships"]
-
-    ents = normalize_and_dedup(ents)                  # 8-2~8-4
-    write_wiki_pages(ents, rels)                      # 8-5 (예제1 일반화)
-    regenerate_schema(ents, rels)                     # entities/relationships.json
-    build_provenance_index(ents)                      # 12-1 (증분 갱신용 역인덱스)
-
-    if run_wiki_lint("wiki/"):                        # 예제2
-        raise SystemExit("lint failed — PR 생성 중단")
-
-    subprocess.run(["git","checkout","-B",branch]); subprocess.run(["git","add","wiki/"])
-    subprocess.run(["git","commit","-m","build: regenerate LLM Wiki"])
-    subprocess.run(["gh","pr","create","--fill",
-                    "--title","Update LLM Wiki",
-                    "--body","자동 생성. confidence<0.7 페이지는 리뷰 요망."])
-```
-
-> **이 코드가 하는 일:** Raw 수집 → 추출 → 정규화/Dedup → 페이지·Schema·**역 출처 인덱스** 생성 → **Lint 게이트** → 통과 시 PR. Section 11(구축)·12(유지보수의 역인덱스)·8(파이프라인)·10(Lint)을 한 드라이버로 종합. 이것이 "지식을 빌드하는" 실체.
-
-> 📌 네 예제의 공통 신경: **(1) 모든 진술에 source, (2) 생성물은 draft, (3) Lint 게이트 통과 전엔 PR 금지, (4) 사람 승인으로 canonical 승격.** 이 네 가드가 Section 19의 실패를 코드 레벨에서 예방합니다.
-
-### 🧭 Section 17 한 줄 요약
-
-> 네 프로그램 — **Generator**(Raw→페이지)·**Linter**(5검사 CI 게이트)·**Query Engine**(검색+그래프순회+캐시)·**Repo→Wiki**(전체 빌드+PR). 프레임워크 없이 `anthropic`+`networkx`+`jsonschema`로 조립되며, *source 강제·draft 생성·Lint 게이트·사람 승인*이라는 공통 가드를 코드에 박는다.
-
----
-
-<a id="section-18"></a>
-## Section 18. 운영 전략 — Wiki를 "살아 있는 시스템"으로
-
-Wiki는 한 번 만들고 끝이 아닙니다. 운영의 5요소.
-
-### 18-1. Human in the Loop (HITL)
-Agent는 **초안(`draft`)** 까지, 정본 승격은 **사람**이. 특히 모순 해소(Section 8-4 b분기)·정본 변경·관계 추가는 사람 승인 필수. 🧪 `acme-billing` 팀은 Wiki PR을 **2분 룰**로 다룹니다 — "코드 PR 리뷰 끝에 Wiki diff도 본다." 별도 의식이 아니라 코드리뷰에 흡수.
-
-### 18-2. Approval Workflow
-`owners` 메타데이터(Section 7-3) → **CODEOWNERS와 연동**. `wiki/knowledge/Invoice*`는 `@team-billing`이, `wiki/concepts/dependency-injection`은 `@team-platform`이 승인해야 머지. 도메인 정본을 함부로 못 바꾸게.
-
-### 18-3. Ownership
-모든 정본 페이지에 **소유 팀**. 소유 없는 페이지는 Lint 경고. "이 지식은 누구 책임인가"가 없으면 아무도 안 고치고 썩습니다.
-
-### 18-4. Governance
-- **관계/엔티티 vocabulary 변경**은 플랫폼 팀 승인(Schema는 전사 공용).
-- **출처 권위 순위**(Section 15-2: 코드>ADR>API>Slack>Notion) 합의·문서화.
-- **Wiki에 무엇을 페이지화할지 기준**(공개 API·경계·핵심 도메인만; Section 14) 합의 → 폭증 방지.
-
-### 18-5. Knowledge Freshness
-- **Stale Lint**(Section 10)가 1차 방어선.
-- **주기적 재검증:** 핵심 정본 페이지는 분기마다 `last_verified` 갱신(에이전트가 코드와 대조 후 "여전히 맞음" 확인).
-- **freshness 대시보드:** `status`별·`last_verified` 분포를 보면 "썩어가는 영역"이 보입니다.
-
-### 18-6. 언제 투자하나 — 손익분기
-⚠️ Wiki는 빌드·Lint·거버넌스 비용을 새로 만듭니다(Section 3). 도입 판단:
-
-```
-✅ 한다:  장수 코드베이스 · 여러 에이전트/사람이 반복 작업 · 온보딩 잦음 ·
-          "관계/영향범위" 질문 빈번 · 정확성·일관성이 비용보다 중요
-❌ 미룬다: 프로토타입 · 1회성 분석 · 곧 버릴 코드 · 1인 단기 프로젝트
-```
-
-📌 정량 신호: "에이전트가 **같은 도메인 지식을 주당 N회 이상 재발견**한다"면(Section 1-1) Wiki가 토큰·시간을 회수합니다. `acme-billing` 팀은 결제 도메인 질문이 주 50+회라 즉시 흑자.
-
-### 🧭 Section 18 한 줄 요약
-
-> 운영 5요소: **HITL**(draft는 Agent, canonical은 사람)·**Approval**(owners↔CODEOWNERS)·**Ownership**(주인 없는 페이지 금지)·**Governance**(vocabulary·권위순위·페이지화 기준 합의)·**Freshness**(Stale Lint+주기 재검증+대시보드). 손익분기는 "같은 지식의 반복 사용 빈도".
-
----
-
-<a id="section-19"></a>
-## Section 19. 실패 사례 — 원인과 해결책
-
-운영하면 반드시 마주치는 5대 실패. 각각 **원인 → 증상 → 해결**.
-
-| 실패 | 원인 | 증상 | 해결 |
-|---|---|---|---|
-| **Wiki 폭증** | "모든 함수에 페이지" | 수만 페이지, 검색 노이즈, 유지 불가 | 페이지화 기준(공개 API·경계·핵심만, 14·18), 내부 헬퍼는 코드에 위임 |
-| **Duplicate Knowledge** | Dedup 부재/임계값 낮음 | 같은 사실 N벌, 모순 답 부활(1-2) | Dedup 단계(8-4)+Duplicate Lint(10③), `single-canonical` 규칙 |
-| **Agent Hallucination** | 추출 LLM이 없는 사실/관계 지어냄 | 코드에 없는 "정본" | source 강제·"명시된 것만" 프롬프트·`canonical-needs-source` Lint·draft+사람승인(8·11·17) |
-| **Wrong Relationship** | 잘못된/임의 관계 타입 | 순회가 엉뚱한 곳으로, impact 질문 오답 | vocabulary 고정(7-4)·`no-unknown-relationship-type` Lint·관계도 사람 리뷰 |
-| **Schema Drift** | 규칙 없이 스키마가 제멋대로 진화 | kind/타입 난립, Lint 무력화 | Constraints(7-4)·Schema 거버넌스(18-4)·CI 강제(10) |
-
-### 19-1. 가장 흔하고 위험한 것 — Stale(낡음)
-
-위 표에 없지만 실전 1위는 **Stale**입니다. 코드는 바뀌는데 Wiki가 안 따라가면, **틀린 정본이 가드레일을 오염**시켜 에이전트가 자신 있게 틀린 코드를 씁니다(환각보다 위험 — "출처 있는 거짓").
-
-🧵 사례: `acme-billing`이 멱등을 Redis SETNX → DB unique 제약으로 **되돌렸는데**(가상) Wiki를 안 고침. 에이전트는 정본을 믿고 SETNX 코드를 계속 생성 → 미묘한 버그.
-
-해결: (1) **"코드+Wiki 같은 PR" + Stale Lint**가 근본 방어, (2) 코드와 Wiki 충돌 시 **"코드가 진실"** 규칙을 `CLAUDE.md`에 명시(16-1) → 에이전트가 모순을 *보고*하게, (3) 주기 재검증(18-5).
-
-### 19-2. 메타 교훈
-📌 5대 실패의 공통 해법은 **"Wiki를 코드처럼 운영"** 입니다 — 타입(Schema)·테스트(Lint)·코드리뷰(Approval)·CI(게이트)·소유권(owners). 이 엔지니어링 규율을 지식에 적용하는 게 LLM Wiki의 본질이고, 빼면 어김없이 위 실패가 옵니다.
-
-### 🧭 Section 19 한 줄 요약
-
-> 5대 실패(**폭증·중복·환각·잘못된 관계·Schema Drift**)와 숨은 1위(**Stale**)는 전부 **"Wiki를 코드처럼 운영"**(Schema=타입, Lint=테스트, Approval=리뷰, CI=게이트, owners=소유권)으로 예방된다. 특히 Stale은 "출처 있는 거짓"이라 환각보다 위험 — 코드+Wiki 동일 PR과 "코드가 진실" 규칙으로 막는다.
-
----
-
-<a id="section-20"></a>
-## Section 20. Best Practices — 기업 환경 기준 정리
-
-지금까지를 **실전 체크리스트**로 압축합니다.
-
-**아키텍처**
-- [ ] Raw/Wiki/Schema **3계층 분리**. Wiki는 정본 산문, Schema는 순회·검증용 그래프(4·7).
-- [ ] Wiki를 **레포에 커밋** — 버전관리·PR·CI 대상(4-3).
-- [ ] Wiki는 코드 복제가 아니라 **자명하지 않은 것(불변식·관계·정본)의 정본**(6).
-
-**파이프라인**
-- [ ] Ingest의 **Dedup·모순 분기**를 반드시 둔다(동일=흡수, 모순=사람)(8-4).
-- [ ] Query는 **검색 + 그래프 순회** 둘 다(관계 질문은 순회 없이 못 푼다)(9).
-- [ ] **모든 진술에 source**, 생성물은 **draft**, 정본 승격은 **사람**(8·11·18).
-
-**품질·운영**
-- [ ] **Lint를 CI 게이트로**(Broken/Missing/Duplicate/Stale/Schema)(10).
-- [ ] **"코드 변경과 Wiki 변경은 같은 PR"** — Stale Lint로 강제(12·16).
-- [ ] **owners↔CODEOWNERS**, vocabulary·권위순위 **거버넌스 합의**(18).
-- [ ] **status로 진화 관리** — 옛 사실은 삭제 말고 superseded(6-5·12).
-
-**에이전트 통합**
-- [ ] 진입점(`CLAUDE.md`/`AGENTS.md`/cursor rules)에 **Wiki 위치·사용 규칙·"코드가 진실"** 명시(16).
-- [ ] Query 엔진을 **MCP/CLI 도구**로 노출, 에이전트가 위임(16-2).
-- [ ] 정본 페이지를 **프롬프트 캐싱**으로 재사용(9-4·6-5).
-
-**비용·규모**
-- [ ] 모델 계층화(추출 Opus / 대량 Sonnet / 분류 Haiku) + **Batch + 증분**(14).
-- [ ] 모노레포는 **샤딩**, 페이지화는 **공개 API·경계·핵심만**(14·19).
-- [ ] **손익분기 확인** 후 투자(반복 사용 빈도)(18-6).
-
-### 🧭 Section 20 한 줄 요약
-
-> 베스트 프랙티스의 한 문장: **"Raw/Wiki/Schema 3계층을, source·draft·Lint·사람승인·동일PR·거버넌스라는 엔지니어링 규율로 운영하고, 에이전트에는 진입점+Query도구+캐시로 연결하라."**
+> LLM Wiki는 **수십~수백 source의 꾸준한 개인/팀 축적·관계·출처·시간변화**에서 이기고, **대규모·고변동·다중사용자·저지연**에서 진다(여기선 RAG). 한계는 *~100~200K 토큰 천장·model collapse·learning outsourcing*. 큰 코퍼스엔 **RAG로 검색 + Wiki로 축적**의 하이브리드.
 
 ---
 
 <a id="appendix"></a>
 ## 부록
 
-### 부록 A. 용어 사전
+### A. 용어집
 
 | 용어 | 뜻 |
 |---|---|
-| **LLM Wiki** | AI가 읽기 위한 정본·무중복·구조화된 지식 계층 |
-| **Raw / Wiki / Schema Layer** | 원천 / AI용 정본 산문 / 기계용 그래프 |
-| **Concept Page / Knowledge Page** | 개념·패턴 페이지 / 구체 엔티티 페이지 |
-| **Canonical** | 현재 맞는 정본 진술 (status) |
-| **Provenance** | 모든 진술의 Raw 출처 역추적 |
-| **Relationship (typed edge)** | calls/implements/guarded_by/supersedes… 타입 관계 |
-| **Ingest / Query / Lint** | 빌드 / 질의 / 검증 파이프라인 |
-| **Dedup·Merge** | 같은 사실 흡수 / 기존 페이지에 합치기 |
-| **Schema Traversal** | 관계 그래프 BFS 순회 (RAG와의 결정적 차이) |
-| **Stale** | Raw는 변했는데 Wiki가 안 변한 상태 (실전 최대 위험) |
-| **Schema Drift** | 규칙 없이 스키마가 썩는 것 |
-| **Reverse Provenance Index** | `raw_id → 영향 페이지`, 증분 갱신용 |
-| **HITL** | Agent 초안 + 사람 정본 승인 분업 |
+| **LLM Wiki** | raw를 LLM이 정리·축적한 상호연결 마크다운 위키. 질문은 원문이 아닌 위키로 답 |
+| **Raw** | 불변 원천 자료(기사·리포트·공시). LLM은 읽기만 |
+| **Wiki** | LLM이 쓰는 정리본(entity/concept/source 페이지 + index/log) |
+| **Schema** | LLM에게 레이아웃·규약·절차를 지시하는 설정 문서 = `CLAUDE.md` |
+| **Ingest** | 새 raw를 읽어 기존 위키에 녹여 넣기(한 건이 10~15 페이지를 건드림) |
+| **Query** | 위키를 읽어 답하고, 좋은 답을 새 페이지로 환원 |
+| **Lint** | 모순·낡음·고아·끊긴링크·공백·저신뢰를 주기 점검·청소 |
+| **Wikilink** | `[[페이지]]` 형식의 내부 링크 = 관계 엣지. Obsidian이 그래프로 렌더 |
+| **Frontmatter** | 페이지 상단 YAML 메타데이터(title/type/sources/related/confidence…) |
+| **Compounding** | 매 쿼리 재발견이 아니라, 지식이 영구히 쌓여 두꺼워지는 성질 |
 
-### 부록 B. 구축 순서 체크리스트 (0→1)
+### B. 시작 체크리스트
 
-1. 페이지화 **기준**과 관계 **vocabulary** 합의(거버넌스).
-2. `iter_code_units` 등 **Raw 로더**(AST 경계) 마련.
-3. **Extract**(구조화 출력) → Normalize → Dedup 파이프라인(8).
-4. **Wiki/Schema 생성** + **역 출처 인덱스**(11·12).
-5. **Linter** 5검사 + **CI 게이트**(10).
-6. **Query 엔진**(검색+순회+캐시) + **MCP/CLI**(9·16).
-7. 진입점(`CLAUDE.md`)에 **사용 규칙** 박기(16).
-8. **부트스트랩 PR** → 사람 승인 → canonical(11).
-9. **PR 훅 유지보수 에이전트** 가동(12).
-10. **freshness 대시보드**·주기 재검증(18).
+- [ ] `semi-wiki/`를 **git 레포**로 만들었다 (raw·wiki 모두 커밋)
+- [ ] `raw/` `wiki/{entities,concepts,sources,comparisons}` `outputs/` 폴더를 만들었다
+- [ ] `CLAUDE.md`(스키마)에 **레이아웃·페이지 규약·ingest/query/lint 절차**를 적었다
+- [ ] frontmatter 규약(title/type/sources/related/created/updated/confidence)을 정했다
+- [ ] `/ingest` `/query` `/lint` 슬래시 커맨드를 만들었다
+- [ ] raw 파일명에 **날짜**를 넣기로 했다
+- [ ] **주 1회 lint** 루틴을 정했다
+- [ ] `wiki/`를 **Obsidian Vault**로 열어 그래프 뷰를 확인했다
+- [ ] 위키가 ~100K 토큰에 근접하면 **RAG 하이브리드**를 검토하기로 했다
 
-### 부록 C. "이것만은" — 최종 7문장 요약
+### C. 참고자료
 
-1. RAG는 *청크 검색*, LLM Wiki는 *지식 관리* — Agent 시대의 진짜 문제는 후자다.
-2. 3계층: **Raw**(원천)→**Wiki**(AI용 정본 산문)→**Schema**(기계용 그래프).
-3. 핵심 무기는 RAG에 없던 **정본화·무중복·타입 관계·관계 순회**.
-4. 지식은 손으로 쓰는 게 아니라 **빌드되는 산출물** — Ingest가 컴파일러다.
-5. **모든 진술에 출처, 생성물은 draft, Lint 게이트, 사람이 canonical 승격.**
-6. **"코드 변경과 Wiki 변경은 같은 PR"** — Stale이 환각보다 위험하다.
-7. 에이전트에는 **진입점 + Query 도구 + 캐시**로 연결하면, Wiki는 검색 가속이자 **코드 품질 가드레일**이 된다.
-
-### 부록 D. 참고 / 관련 기술
-
-본 교안의 아키텍처는 다음 실제 사례·기술의 패턴을 **하나의 방법론으로 종합**한 것입니다(단일 표준 제품이 아니라 합성 아키텍처임을 밝힙니다).
-
-- **CLAUDE.md / AGENTS.md** — 에이전트가 읽는 레포 가이드(수작업 Wiki 페이지의 원형).
-- **Cursor Rules (`.cursor/rules`)** — 도메인 정본 지식 주입.
-- **DeepWiki류 자동 위키 생성** — 레포 → 위키 자동화(Agent-Driven Construction의 실사례).
-- **Microsoft GraphRAG** — 엔티티·관계 그래프 + 커뮤니티 요약(Schema Layer·관계 순회의 근거).
-- **Anthropic Skills / MCP** — 점진적 공개·도구화(진입점·Query 위임의 실사례).
-- **Anthropic Prompt Caching** — 정본 컨텍스트 재사용으로 비용 절감(9-4).
-
-> ※ 코드 샘플은 2026년 기준 `anthropic` Python SDK·`claude-opus-4-8`/`sonnet-4-6`/`haiku-4-5` 모델, `networkx`·`jsonschema` 기준입니다. 실제 도입 시 자사 레포·문서 분포에서 임계값(Dedup 0.9~0.95 등)·모델 선택·페이지화 기준을 PoC로 검증하길 권장합니다.
+- Andrej Karpathy, *LLM wiki* (원본 gist, 2026-04-03) — https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f
+- "How to Build Karpathy's LLM Wiki" (Starmorph) — https://blog.starmorph.com/blog/karpathy-llm-wiki-knowledge-base-guide
+- "LLM Wiki vs RAG: The Karpathy Concept and Enterprise Reality" (Atlan) — https://atlan.com/know/llm-wiki-vs-rag-knowledge-base/
+- "Where RAG Breaks Down: The Karpathy LLM Wiki Alternative" (MindStudio) — https://www.mindstudio.ai/blog/karpathy-llm-wiki-pattern-knowledge-base-without-rag
+- Graph RAG 유지보수·비용 관점: "Knowledge Graph vs RAG: When Each One Wins" (Atlan) — https://atlan.com/know/knowledge-graphs-vs-rag-for-ai/
+- HBM 시장 수치(관통 예시 근거): SK hynix 62% HBM share, Micron 21%, Samsung 17% (Astute Group, 2026) — https://www.astutegroup.com/news/general/sk-hynix-holds-62-of-hbm-micron-overtakes-samsung-2026-battle-pivots-to-hbm4/
+- SK하이닉스 2025 영업이익 삼성 첫 추월 (CNBC, 2026-01-29) — https://www.cnbc.com/2026/01/29/sk-hynix-beats-samsung-2025-profit-ai-memory-hbm.html
+- Obsidian — https://obsidian.md
 
 ---
 
-*본 문서는 LLM/RAG/Embedding 기초를 갖춘 엔지니어 대상 "AI Agent 시대의 LLM Wiki 구축·운영 실무 교안"으로 작성되었습니다. 설명:실무 ≈ 40:60, `acme-billing`(FastAPI 결제 백엔드)과 관통 질문("구독 갱신 시 인보이스 중복 발행 방지")을 20개 섹션 내내 관통시켰습니다. 이후 단일 자기완결 HTML 교육 콘텐츠의 원본(Markdown)으로 사용합니다.*
-
+> 🧵 **마지막으로, 관통 질문으로 한 바퀴 정리.**
+> "엔비디아 HBM은 누가 주도하나?"를 — **Graph RAG**는 매번 기사를 다시 긁어 그래프를 순회하며(유지보수도 떠안고) 재합성했습니다. **LLM Wiki**는 그 답을 *한 번 정리해 `[[sk-hynix]]`·`[[hbm]]`에 박아 두고*, 새 사실이 오면 그 페이지를 갱신하고, 모순은 lint로 시점 보존하며 정리했습니다. 다음에 같은 걸 물으면 위키는 *더 두꺼워진 상태로* 더 잘 답합니다. **지식은 검색되는 게 아니라, 축적됩니다.**

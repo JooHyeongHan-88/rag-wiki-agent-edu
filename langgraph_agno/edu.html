@@ -488,28 +488,28 @@
         <!-- Step 2 -->
         <rect x="40" y="110" width="340" height="42" rx="8" fill="var(--surface)" stroke="var(--line)" />
         <text x="56" y="135" font-size="13.5" fill="var(--ink)" font-weight="700">"이거 환불되나요?"</text>
-        <path d="M 390 131 L 420 131" stroke="var(--muted)" stroke-width="2" />
+        <path d="M 390 131 L 420 131" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow)" />
         <rect x="430" y="110" width="330" height="42" rx="8" fill="var(--blue-soft)" stroke="var(--blue-mid)" />
         <text x="446" y="135" font-size="13" font-weight="700" fill="var(--blue-strong)">Workflow (의도 분류 ➔ RAG ➔ 자격 판단)</text>
 
         <!-- Step 3 -->
         <rect x="40" y="165" width="340" height="42" rx="8" fill="var(--surface)" stroke="var(--line)" />
         <text x="56" y="190" font-size="13.5" fill="var(--ink)" font-weight="700">"환불해 주세요" (50만 원 초과 건)</text>
-        <path d="M 390 186 L 420 186" stroke="var(--muted)" stroke-width="2" />
+        <path d="M 390 186 L 420 186" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow)" />
         <rect x="430" y="165" width="330" height="42" rx="8" fill="var(--indigo-soft)" stroke="var(--line)" />
         <text x="446" y="190" font-size="13" font-weight="700" fill="var(--indigo)">Human-in-the-Loop (승인 대기 ➔ 재개)</text>
 
         <!-- Step 4 -->
         <rect x="40" y="220" width="340" height="42" rx="8" fill="var(--surface)" stroke="var(--line)" />
         <text x="56" y="245" font-size="13.5" fill="var(--ink)" font-weight="700">"아까 환불해달라 한 거 어떻게 됐나요?"</text>
-        <path d="M 390 241 L 420 241" stroke="var(--muted)" stroke-width="2" />
+        <path d="M 390 241 L 420 241" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow)" />
         <rect x="430" y="220" width="330" height="42" rx="8" fill="var(--teal-soft)" stroke="var(--teal-line)" />
         <text x="446" y="245" font-size="13" font-weight="700" fill="var(--teal)">Memory (대화 세션 유지 + 영구 선호 기억)</text>
 
         <!-- Step 5 -->
         <rect x="40" y="275" width="340" height="42" rx="8" fill="var(--surface)" stroke="var(--line)" />
         <text x="56" y="300" font-size="13.5" fill="var(--ink)" font-weight="700">"환불해 주고, 대체 쓸 만한 모델도 골라줘"</text>
-        <path d="M 390 296 L 420 296" stroke="var(--muted)" stroke-width="2" />
+        <path d="M 390 296 L 420 296" stroke="var(--muted)" stroke-width="2" marker-end="url(#arrow)" />
         <rect x="430" y="275" width="330" height="42" rx="8" fill="var(--green-soft)" stroke="var(--green)" stroke-dasharray="2,2" />
         <text x="446" y="300" font-size="13" font-weight="700" fill="var(--green)">Multi-Agent (환불 Agent + 추천 Agent 협업)</text>
 
@@ -872,7 +872,7 @@ g.add_conditional_edges(
 
     <!-- SVG #3: ReAct 루프 그래프 -->
     <div class="figure">
-      <svg viewBox="0 0 800 280" xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="var(--bg)" rx="12" stroke="var(--line)" />
         
         <!-- Nodes -->
@@ -907,9 +907,9 @@ g.add_conditional_edges(
         <path d="M 520 160 C 470 200, 370 200, 330 190" fill="none" stroke="var(--indigo)" stroke-width="2" stroke-dasharray="4,4" marker-end="url(#indigoArrow)" />
         <text x="430" y="210" font-size="11" font-weight="700" fill="var(--indigo)" text-anchor="middle">도구 실행 결과 반영해 복귀 (Loop)</text>
 
-        <!-- Agent -> END -->
-        <path d="M 380 140 L 680 140" stroke="var(--ink-strong)" stroke-width="2" marker-end="url(#strongArrow)" />
-        <text x="450" y="155" font-size="11.5" font-weight="700" fill="var(--ink-strong)">최종 답변 준비 완료</text>
+        <!-- Agent -> END (아래로 우회하여 Tools 박스 통과 회피) -->
+        <path d="M 320 185 C 380 262 720 262 720 172" fill="none" stroke="var(--ink-strong)" stroke-width="2" marker-end="url(#strongArrow)" />
+        <text x="520" y="272" font-size="11.5" font-weight="700" fill="var(--ink-strong)" text-anchor="middle">최종 답변 준비 완료</text>
 
         <!-- Markers -->
         <defs>
@@ -1135,7 +1135,7 @@ app = g.compile()</code></pre>
 
         <!-- Supervisor -->
         <rect x="300" y="30" width="200" height="70" rx="10" fill="var(--blue-soft)" stroke="var(--blue)" stroke-width="2" />
-        <text x="400" y="65" font-size="15" font-weight="800" fill="var(--blue-strong)" text-anchor="middle">👑 Supervisor (LLM Router)</text>
+        <text x="400" y="64" font-size="13" font-weight="800" fill="var(--blue-strong)" text-anchor="middle">👑 Supervisor (LLM Router)</text>
         <text x="400" y="85" font-size="11" fill="var(--muted)" text-anchor="middle">상황 판독 및 업무 배정</text>
 
         <!-- FINISH -->
