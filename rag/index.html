@@ -13,14 +13,15 @@
     /* --blue = 1차 강조: clay/terracotta */
     --blue:#C2613D; --blue-strong:#A8492A; --blue-soft:#FAEDE6; --blue-mid:#EFD2C3;
     /* --indigo = 2차 강조: berry plum (채도↑) */
-    --indigo:#8B466A; --indigo-soft:#F4EBF0;
+    --indigo:#8B466A; --indigo-soft:#F4EBF0; --indigo-mid:#E3C9D6; --indigo-ink:#6E3553;
     --amber:#8E6526; --amber-soft:#FBF3E0; --amber-line:#E6C57A; --amber-ink:#845512;
-    /* --teal = sage(실무 팁) */
+    /* --teal = sage(실무 팁/성공 — 유일 긍정색) */
     --teal:#3E7A70; --teal-soft:#E8F1EE; --teal-line:#A2CEC2; --teal-ink:#2D5A52;
-    --green:#5C7C3F; --green-soft:#EFF2E6; --green-ink:#455E2E;
+    /* --green* 은 teal 패밀리로 리매핑(두 초록 통합) — 클래스명 유지용 별칭 */
+    --green:var(--teal); --green-soft:var(--teal-soft); --green-ink:var(--teal-ink);
     --red:#9C2A1E;
     --sidebar-w:280px; --content-max:880px;
-    --radius:12px; --radius-sm:8px;
+    --radius:12px; --radius-sm:8px; --radius-lg:16px;
     --shadow:0 1px 2px rgba(60,45,30,.05), 0 8px 24px rgba(60,45,30,.07);
     --mono:"Cascadia Code","D2Coding",Consolas,"Courier New",monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Pretendard","Pretendard Variable","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
@@ -60,19 +61,24 @@
   #sidebar a.active{background:var(--blue-soft); color:var(--blue-strong); border-left-color:var(--blue); font-weight:700}
   #sidebar a.active .num{color:var(--blue)}
   #backdrop{display:none}
+  #sidebar .back-home{display:flex; align-items:center; gap:7px; text-decoration:none;
+    font-size:13px; font-weight:600; color:var(--muted);
+    padding:7px 10px; border-radius:8px; margin-bottom:16px;
+    border:1px solid var(--line); background:var(--bg); transition:.12s}
+  #sidebar .back-home:hover{color:var(--ink-strong); border-color:var(--blue-mid); background:var(--blue-soft)}
 
   /* ---------- 본문 ---------- */
   main{margin-left:var(--sidebar-w); padding:0 40px 120px}
   .wrap{max-width:var(--content-max); margin:0 auto}
-  section{scroll-margin-top:24px; padding:46px 0 8px; border-top:1px solid var(--line-soft)}
+  section{scroll-margin-top:24px; padding:52px 0 10px; border-top:1px solid var(--line-soft)}
   section:first-of-type{border-top:none}
 
   h2{font-size:27px; line-height:1.3; color:var(--ink-strong); letter-spacing:-.02em; margin:6px 0 6px; display:flex; gap:14px; align-items:center}
-  h2 .badge{flex:none; display:inline-grid; place-items:center; width:40px; height:40px; border-radius:11px;
-    background:var(--blue-strong); color:#fff; font-size:16px; font-weight:800; box-shadow:0 4px 12px rgba(138,50,22,.30)}
+  h2 .badge{flex:none; display:inline-grid; place-items:center; width:40px; height:40px; border-radius:var(--radius-sm);
+    background:var(--blue-strong); color:#fff; font-size:16px; font-weight:800}
   h2 .badge.apx{background:var(--indigo); font-size:18px}
   h3{font-size:19px; color:var(--ink-strong); letter-spacing:-.01em; margin:30px 0 8px}
-  h4{font-size:16px; color:var(--blue-strong); margin:20px 0 6px}
+  h4{font-size:16px; color:var(--ink-strong); margin:20px 0 6px}
   p{margin:12px 0}
   a{color:var(--blue-strong)}
   strong{color:var(--ink-strong); font-weight:700}
@@ -80,21 +86,26 @@
   li{margin:6px 0}
   hr{border:none; border-top:1px solid var(--line); margin:34px 0}
   .lead{font-size:17.5px; color:var(--muted)}
+  /* 본문 보조 텍스트 유틸 (인라인 style 대체) */
+  .note{font-size:13px; color:var(--muted); margin:6px 0 0}
+  .note.sm{font-size:12px}
+  .note.top0{margin-top:0}
+  .note.ok{color:var(--teal-ink)} .note.cau{color:var(--amber-ink)} .note.bad{color:var(--red)}
   .section-tag{display:inline-block; font-size:12.5px; font-weight:700; color:var(--blue-strong); background:var(--blue-soft);
     border:1px solid var(--blue-mid); padding:3px 10px; border-radius:999px; margin-bottom:8px}
 
   /* ---------- 히어로 ---------- */
-  .hero{background:linear-gradient(160deg,#FFFFFF 0%,#FAF2EA 100%); border:1px solid var(--line);
-    border-radius:20px; padding:42px 40px; margin:36px 0 8px; box-shadow:var(--shadow)}
+  .hero{background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius-lg); padding:42px 40px; margin:36px 0 8px; box-shadow:var(--shadow)}
   .hero h1{font-size:34px; line-height:1.25; letter-spacing:-.03em; color:var(--ink-strong); margin:0 0 10px}
   .hero .sub{font-size:17px; color:var(--muted); margin:0 0 22px; max-width:60ch}
   .chips{display:flex; flex-wrap:wrap; gap:8px}
-  .chip{font-size:13px; font-weight:600; color:var(--ink); background:#fff; border:1px solid var(--line);
-    border-radius:999px; padding:6px 13px; box-shadow:var(--shadow)}
+  .chip{font-size:13px; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--line);
+    border-radius:999px; padding:6px 13px}
   .chip b{color:var(--blue-strong)}
 
   /* ---------- 콜아웃 ---------- */
-  .callout{position:relative; border:1px solid var(--line); border-left-width:4px; border-radius:12px;
+  .callout{position:relative; border:1px solid var(--line); border-left-width:3px; border-radius:var(--radius);
     padding:14px 18px 14px 16px; margin:16px 0; background:var(--surface)}
   .callout .ttl{font-weight:800; font-size:14px; letter-spacing:.01em; margin-bottom:2px; display:flex; align-items:center; gap:7px}
   .callout p:first-of-type{margin-top:4px}
@@ -103,12 +114,12 @@
   .callout.key{background:var(--blue-soft); border-left-color:var(--blue)} .callout.key .ttl{color:var(--blue-strong)}
   .callout.warn{background:var(--amber-soft); border-left-color:var(--amber-line)} .callout.warn .ttl{color:var(--amber-ink)}
   .callout.pro{background:var(--teal-soft); border-left-color:var(--teal-line)} .callout.pro .ttl{color:var(--teal-ink)}
-  .callout.sum{background:linear-gradient(120deg,var(--blue-soft),#fff); border:1px solid var(--blue-mid); border-left:4px solid var(--blue)}
+  .callout.sum{background:var(--blue-soft); border:1px solid var(--blue-mid); border-left:3px solid var(--blue)}
   .callout.sum .ttl{color:var(--blue-strong)}
-  .callout.quote{background:var(--bg); border-left-color:var(--faint); font-style:normal; color:var(--ink)}
+  .callout.quote{background:transparent; border-color:var(--line-soft); border-left-color:var(--faint); font-style:normal; color:var(--ink)}
 
   /* ---------- 표 ---------- */
-  .tablewrap{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow)}
+  .tablewrap{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:var(--radius)}
   table{border-collapse:collapse; width:100%; font-size:14.5px; background:#fff; min-width:520px}
   th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
   thead th{background:#F1ECE2; color:var(--ink-strong); font-weight:700; border-bottom:2px solid var(--line); white-space:nowrap}
@@ -153,7 +164,7 @@
 
   /* ---------- 다이어그램 공통 ---------- */
   .figure{margin:22px 0; padding:22px; background:var(--surface); border:1px solid var(--line);
-    border-radius:14px; box-shadow:var(--shadow)}
+    border-radius:var(--radius)}
   .figure .cap{font-size:13px; color:var(--muted); text-align:center; margin-top:12px}
   .figure svg{display:block; width:100%; height:auto}
 
@@ -161,12 +172,12 @@
   .flow{display:flex; flex-direction:column; align-items:center; gap:0}
   .flow .phase{width:100%; border-radius:12px; padding:14px; margin:6px 0}
   .flow .phase.prep{background:var(--blue-soft); border:1px dashed var(--blue-mid)}
-  .flow .phase.live{background:var(--green-soft); border:1px dashed #BBD0A0}
+  .flow .phase.live{background:var(--green-soft); border:1px dashed var(--teal-line)}
   .flow .phase .phl{text-align:center; font-size:12.5px; font-weight:800; letter-spacing:.02em; margin-bottom:8px}
   .flow .phase.prep .phl{color:var(--blue-strong)} .flow .phase.live .phl{color:var(--green)}
-  .node{display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line);
-    border-radius:11px; padding:12px 16px; width:min(440px,100%); margin:0 auto; box-shadow:0 1px 2px rgba(60,45,30,.06)}
-  .node .ic{flex:none; width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-size:18px;
+  .node{display:flex; align-items:center; gap:14px; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); padding:12px 16px; width:min(440px,100%); margin:0 auto}
+  .node .ic{flex:none; width:38px; height:38px; border-radius:var(--radius-sm); display:grid; place-items:center; font-size:18px;
     background:var(--blue-soft); border:1px solid var(--blue-mid)}
   .node .nm{font-weight:800; color:var(--ink-strong); font-size:15px}
   .node .ds{font-size:12.5px; color:var(--muted)}
@@ -176,28 +187,27 @@
 
   /* 가로 스테퍼(§4) */
   .stepper{display:flex; flex-wrap:wrap; align-items:stretch; gap:10px}
-  .step{flex:1 1 130px; min-width:120px; background:#fff; border:1px solid var(--line); border-top:3px solid var(--blue);
-    border-radius:10px; padding:12px}
+  .step{flex:1 1 130px; min-width:120px; background:var(--surface); border:1px solid var(--line); border-top:3px solid var(--blue);
+    border-radius:var(--radius-sm); padding:12px}
   .step .n{font-size:12px; font-weight:800; color:var(--blue)}
   .step .t{font-weight:700; color:var(--ink-strong); font-size:14px; margin:2px 0}
   .step .d{font-size:12px; color:var(--muted); line-height:1.55}
 
   /* 청킹 미니(§5) */
   .chunkgrid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px}
-  .chunkcard{background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px}
+  .chunkcard{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px}
   .chunkcard h5{margin:0 0 8px; font-size:14px; color:var(--ink-strong)}
   .tok{display:inline-block; padding:3px 0; margin:0; border-radius:4px}
   .seg{display:flex; flex-wrap:wrap; gap:4px; margin-top:6px}
   .seg span{font-family:var(--mono); font-size:11.5px; padding:3px 7px; border-radius:6px; border:1px solid var(--line)}
-  .c1{background:var(--blue-soft); border-color:var(--blue-mid)!important; color:#7A3A20}
-  .c2{background:var(--green-soft); border-color:#C2D3A6!important; color:#3E5226}
-  .c3{background:var(--amber-soft); border-color:var(--amber-line)!important; color:#7A5212}
-  .c4{background:var(--indigo-soft); border-color:#DEC3D2!important; color:#6B4257}
+  /* 청크 색: 2색 교차 (clay ↔ plum) — "같은 색=한 조각" */
+  .c1{background:var(--blue-soft); border-color:var(--blue-mid)!important; color:var(--blue-strong)}
+  .c2{background:var(--indigo-soft); border-color:var(--indigo-mid)!important; color:var(--indigo-ink)}
   .cut{color:var(--red); font-weight:800; font-family:var(--mono)}
 
   /* 작은 키-값 그리드(목적/입력/처리/출력) */
   .kv{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:12px 0}
-  .kv .cell{background:#fff; border:1px solid var(--line); border-radius:10px; padding:11px 13px}
+  .kv .cell{background:transparent; border:1px solid var(--line); border-radius:var(--radius-sm); padding:11px 13px}
   .kv .cell .k{font-size:11.5px; font-weight:800; color:var(--blue); letter-spacing:.03em; text-transform:uppercase}
   .kv .cell .v{font-size:13.5px; color:var(--ink); margin-top:3px; overflow-wrap:break-word}
 
@@ -208,18 +218,19 @@
   .barrow .track{flex:1; height:22px; background:#F1ECE2; border-radius:999px; overflow:hidden; border:1px solid var(--line)}
   .barrow .fill{height:100%; border-radius:999px; display:flex; align-items:center; justify-content:flex-end;
     padding-right:9px; color:#fff; font-size:11.5px; font-weight:800}
-  .fill.hi{background:linear-gradient(90deg,#7FA659,#5C7C3F)}
-  .fill.mid{background:linear-gradient(90deg,#D9A441,#B08020)}
-  .fill.lo{background:linear-gradient(90deg,#CFC6B6,#7E7568); color:#4A4339}
+  /* 유사도 막대: 단색 clay 농담 ramp + 비선택은 중립 */
+  .fill.hi{background:var(--blue-strong)}
+  .fill.mid{background:var(--blue)}
+  .fill.lo{background:var(--faint); color:#fff}
 
   /* 조립(프롬프트) */
   .assemble{display:flex; flex-direction:column; gap:10px}
   .abox{border:1px solid var(--line); border-radius:11px; padding:12px 14px; background:#fff}
   .abox .h{font-size:12px; font-weight:800; letter-spacing:.02em; margin-bottom:4px}
   .abox.q{background:var(--blue-soft); border-color:var(--blue-mid)} .abox.q .h{color:var(--blue-strong)}
-  .abox.r{background:var(--teal-soft); border-color:var(--teal-line)} .abox.r .h{color:var(--teal)}
+  .abox.r{background:var(--bg); border-color:var(--line)} .abox.r .h{color:var(--muted)}
   .abox.p{background:var(--bg)} .abox.p .h{color:var(--muted)}
-  .abox.a{background:var(--green-soft); border-color:#C2D3A6} .abox.a .h{color:var(--green)}
+  .abox.a{background:var(--teal-soft); border-color:var(--teal-line)} .abox.a .h{color:var(--teal-ink)}
   .abox .mini{font-family:var(--mono); font-size:12px; color:var(--ink); white-space:pre-wrap}
   .plus{text-align:center; font-weight:800; color:var(--faint)}
 
@@ -235,7 +246,7 @@
   footer a:hover{text-decoration:underline}
 
   /* 저장 레코드 카드(§7) */
-  .record{background:#FBF9F4; border:1px solid var(--line); border-radius:12px; padding:14px 16px; font-family:var(--mono); font-size:13px; box-shadow:var(--shadow); overflow-x:auto}
+  .record{background:#FBF9F4; border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; font-family:var(--mono); font-size:13px; overflow-x:auto}
   .record .rrow{display:flex; gap:10px; padding:5px 0; border-bottom:1px dashed var(--line-soft); white-space:nowrap}
   .record .rrow:last-child{border-bottom:none}
   .record .rk{color:var(--indigo); font-weight:700; min-width:104px}
@@ -286,6 +297,7 @@
 </header>
 
 <aside id="sidebar">
+  <a class="back-home" href="../">← 교육 자료 홈</a>
   <p class="s-title">RAG 완전 정복</p>
   <p class="s-sub">DNN 개념·파이썬 사용자를 위한 실무 교육 자료</p>
   <nav id="toc">
@@ -677,27 +689,27 @@ print(chunks[0].page_content[:60], chunks[0].metadata)</code></pre>
       <div class="chunkgrid">
         <div class="chunkcard">
           <h5>① Fixed — 고정 크기</h5>
-          <p style="font-size:13px;color:var(--muted);margin:0 0 6px">의미와 무관하게 N글자마다 싹둑.</p>
+          <p class="note top0">의미와 무관하게 N글자마다 싹둑.</p>
           <div class="seg"><span class="c1">출산휴가는 90</span><span class="cut">✂</span><span class="c1">일입니다. 다태</span></div>
-          <p style="font-size:12px;color:var(--red);margin:8px 0 0">단어·의미 중간이 잘림</p>
+          <p class="note sm bad">단어·의미 중간이 잘림</p>
         </div>
         <div class="chunkcard">
           <h5>② Recursive — 재귀적 ⭐</h5>
-          <p style="font-size:13px;color:var(--muted);margin:0 0 6px">문단→문장→단어 순 자연 경계 우선.</p>
-          <div class="seg"><span class="c2">문단</span><span style="border:none">▸</span><span class="c2">문장.</span><span style="border:none">▸</span><span class="c2">단어</span></div>
-          <p style="font-size:12px;color:var(--green);margin:8px 0 0">구조 보존, 가장 무난</p>
+          <p class="note top0">문단→문장→단어 순 자연 경계 우선.</p>
+          <div class="seg"><span class="c1">문단</span><span style="border:none">▸</span><span class="c1">문장.</span><span style="border:none">▸</span><span class="c1">단어</span></div>
+          <p class="note sm ok">구조 보존, 가장 무난</p>
         </div>
         <div class="chunkcard">
           <h5>③ Semantic — 의미 기반</h5>
-          <p style="font-size:13px;color:var(--muted);margin:0 0 6px">주제가 바뀌는 지점에서 자름.</p>
-          <div class="seg"><span class="c2">출산휴가…</span><span class="cut">┊</span><span class="c3">연차휴가…</span></div>
-          <p style="font-size:12px;color:var(--amber);margin:8px 0 0">품질 최상, 단 느리고 비쌈</p>
+          <p class="note top0">주제가 바뀌는 지점에서 자름.</p>
+          <div class="seg"><span class="c1">출산휴가…</span><span class="cut">┊</span><span class="c2">연차휴가…</span></div>
+          <p class="note sm cau">품질 최상, 단 느리고 비쌈</p>
         </div>
         <div class="chunkcard">
           <h5>④ Sliding Window — 겹침</h5>
-          <p style="font-size:13px;color:var(--muted);margin:0 0 6px">앞 조각 끝을 다음 조각에 겹침.</p>
-          <div class="seg"><span class="c4">A B C D E</span><span class="c4">D E F G H</span></div>
-          <p style="font-size:12px;color:#6B4257;margin:8px 0 0">경계 문맥 보존(보완용)</p>
+          <p class="note top0">앞 조각 끝을 다음 조각에 겹침.</p>
+          <div class="seg"><span class="c1">A B C D E</span><span class="c1">D E F G H</span></div>
+          <p class="note sm">경계 문맥 보존(보완용)</p>
         </div>
       </div>
       <div class="cap">그림 5-1. 청킹 4종 — 빨강 ✂/┊는 자르는 지점, 색이 같으면 한 조각</div>
@@ -1258,7 +1270,7 @@ msg = prompt.format(context=context, question="출산휴가는 며칠인가요?"
           <rect x="26" y="131" width="96" height="38" rx="10" fill="var(--blue-soft)" stroke="var(--blue-mid)"/><text x="74" y="155" fill="var(--blue-strong)">김대리</text>
           <rect x="180" y="131" width="96" height="38" rx="10" fill="var(--blue-soft)" stroke="var(--blue-mid)"/><text x="228" y="155" fill="var(--blue-strong)">인사팀</text>
           <rect x="332" y="131" width="96" height="38" rx="10" fill="var(--blue-soft)" stroke="var(--blue-mid)"/><text x="380" y="155" fill="var(--blue-strong)">복지정책</text>
-          <rect x="472" y="58" width="104" height="42" rx="10" fill="var(--green-soft)" stroke="#BBD0A0"/><text x="524" y="74" fill="var(--green)">출산휴가</text><text x="524" y="90" fill="var(--green)" font-size="11">90일</text>
+          <rect x="472" y="58" width="104" height="42" rx="10" fill="var(--green-soft)" stroke="var(--teal-line)"/><text x="524" y="74" fill="var(--green)">출산휴가</text><text x="524" y="90" fill="var(--green)" font-size="11">90일</text>
           <rect x="472" y="201" width="104" height="40" rx="10" fill="var(--amber-soft)" stroke="var(--amber-line)"/><text x="524" y="225" fill="var(--amber)" font-size="12">근로기준법</text>
         </g>
       </svg>
