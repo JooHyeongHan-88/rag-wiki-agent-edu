@@ -6,19 +6,26 @@
 <title>LangGraph & Agno 완전 정복 — Agent Framework의 본질과 설계 철학</title>
 <style>
   :root{
-    --bg:#f8fafc; --surface:#ffffff;
-    --ink:#1e293b; --ink-strong:#0f172a; --muted:#64748b; --faint:#94a3b8;
-    --line:#e2e8f0; --line-soft:#eef2f7;
-    --blue:#2563eb; --blue-strong:#1d4ed8; --blue-soft:#eff6ff; --blue-mid:#dbeafe;
-    --indigo:#4f46e5; --indigo-soft:#eef2ff;
-    --amber:#b45309; --amber-soft:#fffbeb; --amber-line:#fcd34d;
-    --teal:#0f766e; --teal-soft:#f0fdfa; --teal-line:#5eead4;
-    --green:#15803d; --green-soft:#ecfdf5;
+    /* ===== 웜 팔레트 (Claude 라이트 벤치마킹) ===== */
+    --bg:#F5F3ED; --surface:#FFFFFF;
+    --ink:#2A2521; --ink-strong:#1A1611; --ink-2:#4A4339; --muted:#6E665A; --faint:#7E7568;
+    --line:#E7E1D6; --line-soft:#F0EBE2;
+    /* --blue = 1차 강조: clay/terracotta */
+    --blue:#C2613D; --blue-strong:#A8492A; --blue-soft:#FAEDE6; --blue-mid:#EFD2C3;
+    /* --indigo = 2차 강조: berry plum (채도↑) */
+    --indigo:#8B466A; --indigo-soft:#F4EBF0;
+    --amber:#8E6526; --amber-soft:#FBF3E0; --amber-line:#E6C57A; --amber-ink:#845512;
+    /* --teal = sage(실무 팁) */
+    --teal:#3E7A70; --teal-soft:#E8F1EE; --teal-line:#A2CEC2; --teal-ink:#2D5A52;
+    --green:#5C7C3F; --green-soft:#EFF2E6; --green-ink:#455E2E;
+    --red:#9C2A1E;
     --sidebar-w:280px; --content-max:880px;
     --radius:12px; --radius-sm:8px;
-    --shadow:0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+    --shadow:0 1px 2px rgba(60,45,30,.05), 0 8px 24px rgba(60,45,30,.07);
     --mono:"Cascadia Code","D2Coding",Consolas,"Courier New",monospace;
     --sans:-apple-system,BlinkMacSystemFont,"Pretendard","Pretendard Variable","Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    /* 코드 테마 (웜 다크 / 에스프레소) */
+    --code-bg:#26211D; --code-head:#1F1A16; --code-fg:#D8CFC4; --code-line:#15110E;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
@@ -70,7 +77,7 @@
 
   h2{font-size:27px; line-height:1.3; color:var(--ink-strong); letter-spacing:-.02em; margin:6px 0 6px; display:flex; gap:14px; align-items:center}
   h2 .badge{flex:none; display:inline-grid; place-items:center; width:40px; height:40px; border-radius:11px;
-    background:var(--blue); color:#fff; font-size:16px; font-weight:800; box-shadow:0 4px 12px rgba(37,99,235,.28)}
+    background:var(--blue-strong); color:#fff; font-size:16px; font-weight:800; box-shadow:0 4px 12px rgba(138,50,22,.30)}
   h2 .badge.apx{background:var(--indigo); font-size:18px}
   h3{font-size:19px; color:var(--ink-strong); letter-spacing:-.01em; margin:30px 0 8px}
   h4{font-size:16px; color:var(--blue-strong); margin:20px 0 6px}
@@ -81,11 +88,11 @@
   li{margin:6px 0}
   hr{border:none; border-top:1px solid var(--line); margin:34px 0}
   .lead{font-size:17.5px; color:var(--muted)}
-  .section-tag{display:inline-block; font-size:12.5px; font-weight:700; color:var(--blue); background:var(--blue-soft);
+  .section-tag{display:inline-block; font-size:12.5px; font-weight:700; color:var(--blue-strong); background:var(--blue-soft);
     border:1px solid var(--blue-mid); padding:3px 10px; border-radius:999px; margin-bottom:8px}
 
   /* ---------- 히어로 ---------- */
-  .hero{background:linear-gradient(160deg,#ffffff 0%,#f0f6ff 100%); border:1px solid var(--line);
+  .hero{background:linear-gradient(160deg,#FFFFFF 0%,#FAF2EA 100%); border:1px solid var(--line);
     border-radius:20px; padding:42px 40px; margin:36px 0 8px; box-shadow:var(--shadow)}
   .hero h1{font-size:34px; line-height:1.25; letter-spacing:-.03em; color:var(--ink-strong); margin:0 0 10px}
   .hero .sub{font-size:17px; color:var(--muted); margin:0 0 22px; max-width:60ch}
@@ -102,59 +109,53 @@
   .callout p:last-child{margin-bottom:0}
   .callout.tip{background:var(--indigo-soft); border-left-color:var(--indigo)} .callout.tip .ttl{color:var(--indigo)}
   .callout.key{background:var(--blue-soft); border-left-color:var(--blue)} .callout.key .ttl{color:var(--blue-strong)}
-  .callout.warn{background:var(--amber-soft); border-left-color:var(--amber-line)} .callout.warn .ttl{color:var(--amber)}
-  .callout.pro{background:var(--teal-soft); border-left-color:var(--teal-line)} .callout.pro .ttl{color:var(--teal)}
+  .callout.warn{background:var(--amber-soft); border-left-color:var(--amber-line)} .callout.warn .ttl{color:var(--amber-ink)}
+  .callout.pro{background:var(--teal-soft); border-left-color:var(--teal-line)} .callout.pro .ttl{color:var(--teal-ink)}
+  .callout.sce,.callout.scenario{background:var(--green-soft); border-left-color:#BBD0A0} .callout.sce .ttl,.callout.scenario .ttl{color:var(--green-ink)}
   .callout.sum{background:linear-gradient(120deg,var(--blue-soft),#fff); border:1px solid var(--blue-mid); border-left:4px solid var(--blue)}
   .callout.sum .ttl{color:var(--blue-strong)}
-  .callout.quote{background:#f8fafc; border-left-color:var(--faint); font-style:normal; color:var(--ink)}
-  
-  /* 🧪 실무 시나리오 콜아웃 */
-  .callout.scenario {
-    background: #fffdf5; border-left-color: #f59e0b;
-  }
-  .callout.scenario .ttl {
-    color: #b45309;
-  }
+  .callout.quote{background:var(--bg); border-left-color:var(--faint); font-style:normal; color:var(--ink)}
 
   /* ---------- 표 ---------- */
   .tablewrap{overflow-x:auto; margin:18px 0; border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow)}
   table{border-collapse:collapse; width:100%; font-size:14.5px; background:#fff; min-width:520px}
   th,td{padding:11px 14px; text-align:left; border-bottom:1px solid var(--line); vertical-align:top}
-  thead th{background:#f1f5f9; color:var(--ink-strong); font-weight:700; border-bottom:2px solid var(--line); white-space:nowrap}
-  tbody tr:nth-child(even){background:#fafcff}
+  thead th{background:#F1ECE2; color:var(--ink-strong); font-weight:700; border-bottom:2px solid var(--line); white-space:nowrap}
+  tbody tr:nth-child(even){background:#FBFAF5}
   tbody tr:hover{background:var(--blue-soft)}
   td strong, th strong{color:var(--ink-strong)}
-  .ok{color:var(--green); font-weight:700} .no{color:#dc2626; font-weight:700}
+  .ok{color:var(--green); font-weight:700} .no{color:var(--red); font-weight:700}
 
   /* ---------- 코드 (다크 IDE 테마, One Dark) ---------- */
-  .codeblock{position:relative; margin:18px 0; border:1px solid #181b20; border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
+  .codeblock{position:relative; margin:18px 0; border:1px solid var(--code-line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow)}
   .codeblock .chead{display:flex; align-items:center; justify-content:space-between; padding:8px 14px;
-    background:#21252b; border-bottom:1px solid #181b20}
-  .codeblock .chead .lang{font-size:12px; font-weight:700; color:#7f8794; letter-spacing:.04em; text-transform:uppercase}
-  .copybtn{appearance:none; border:1px solid #3a414d; background:#2c313a; color:#abb2bf; cursor:pointer;
+    background:var(--code-head); border-bottom:1px solid var(--code-line)}
+  .codeblock .chead .lang{font-size:12px; font-weight:700; color:#989284; letter-spacing:.04em; text-transform:uppercase}
+  .copybtn{appearance:none; border:1px solid #403830; background:#2E2823; color:var(--code-fg); cursor:pointer;
     font-size:12px; font-weight:600; padding:4px 11px; border-radius:7px; font-family:var(--sans)}
-  .copybtn:hover{color:#fff; border-color:#4b5563; background:#343a45}
-  .copybtn.done{color:#98c379; border-color:#3f6b43; background:#2b3a2e}
-  pre{margin:0; padding:16px 18px; overflow-x:auto; background:#282c34; font-family:var(--mono);
-    font-size:13.5px; line-height:1.7; color:#abb2bf; tab-size:2}
-  /* IDE 토큰 색 */
-  pre .hl-kw{color:#c678dd}
-  pre .hl-def{color:#dcdcaa}
-  pre .hl-call{color:#61afef}
-  pre .hl-method{color:#56b6c2}
-  pre .hl-cls{color:#4ec9b0}
-  pre .hl-self{color:#e5c07b; font-style:italic}
-  pre .hl-builtin{color:#56b6c2}
-  pre .hl-dec{color:#e5c07b}
-  pre .hl-str{color:#98c379}
-  pre .hl-num{color:#d19a66}
-  pre .hl-cmt{color:#7f848e; font-style:italic}
-  pre .hl-attr{color:#abb2bf}
-  pre .hl-prop{color:#e06c75}
-  pre .hl-bool{color:#d19a66}
-  pre .hl-punct{color:#7f8794}
-  code.inline{font-family:var(--mono); font-size:.9em; background:#f1f5f9; border:1px solid var(--line);
-    border-radius:6px; padding:1px 6px; color:#be123c}
+  .copybtn:hover{color:#fff; border-color:#5A4F44; background:#3A332C}
+  .copybtn.done{color:#AEBE83; border-color:#4A5235; background:#2C2A1F}
+  pre{margin:0; padding:16px 18px; overflow-x:auto; background:var(--code-bg); font-family:var(--mono);
+    font-size:13.5px; line-height:1.7; color:var(--code-fg); tab-size:2}
+  /* IDE 토큰 색 — 웜 톤 */
+  pre .hl-kw{color:#CC8FB0}
+  pre .hl-def{color:#E6C57E}
+  pre .hl-call{color:#E0B16A}
+  pre .hl-method{color:#6FB0C4}
+  pre .hl-cls{color:#85C0A8}
+  pre .hl-self{color:#D9A86A; font-style:italic}
+  pre .hl-builtin{color:#6FB0C4}
+  pre .hl-dec{color:#D9A86A}
+  pre .hl-str{color:#AEBE83}
+  pre .hl-num{color:#E89A5A}
+  pre .hl-cmt{color:#989284; font-style:italic}
+  pre .hl-attr{color:#C9BFB2}
+  pre .hl-prop{color:#E59A87}
+  pre .hl-bool{color:#E89A5A}
+  pre .hl-punct{color:#989284}
+  :not(pre) > code{font-family:var(--mono); font-size:.9em; background:#F3EDE3; border:1px solid var(--line);
+    border-radius:6px; padding:1px 6px; color:var(--blue-strong)}
+  .callout code{font-size:.86em; background:rgba(60,45,30,.07); border-color:transparent}
 
   /* ---------- 다이어그램 공통 ---------- */
   .figure{margin:22px 0; padding:22px; background:var(--surface); border:1px solid var(--line);
@@ -221,12 +222,12 @@
   /* 세로 플로우 (Agno 레벨) */
   .flow{display:flex; flex-direction:column; align-items:center; gap:0}
   .flow .phase{width:100%; border-radius:12px; padding:14px; margin:6px 0}
-  .flow .phase.prep{background:#f1f6ff; border:1px dashed #bfd4f5}
-  .flow .phase.live{background:#f3fbf7; border:1px dashed #bbe6cf}
+  .flow .phase.prep{background:var(--blue-soft); border:1px dashed var(--blue-mid)}
+  .flow .phase.live{background:var(--green-soft); border:1px dashed #BBD0A0}
   .flow .phase .phl{text-align:center; font-size:12.5px; font-weight:800; letter-spacing:.02em; margin-bottom:8px}
   .flow .phase.prep .phl{color:var(--blue-strong)} .flow .phase.live .phl{color:var(--green)}
   .node{display:flex; align-items:center; gap:14px; background:#fff; border:1px solid var(--line);
-    border-radius:11px; padding:12px 16px; width:min(440px,100%); margin:0 auto; box-shadow:0 1px 2px rgba(15,23,42,.05)}
+    border-radius:11px; padding:12px 16px; width:min(440px,100%); margin:0 auto; box-shadow:0 1px 2px rgba(60,45,30,.06)}
   .node .ic{flex:none; width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-size:18px;
     background:var(--blue-soft); border:1px solid var(--blue-mid)}
   .node .nm{font-weight:800; color:var(--ink-strong); font-size:15px}
@@ -262,7 +263,7 @@
     #topbar{display:flex}
     #sidebar{transform:translateX(-100%); transition:transform .25s ease; box-shadow:var(--shadow); width:280px; top:0; padding-top:20px}
     body.nav-open #sidebar{transform:translateX(0)}
-    body.nav-open #backdrop{display:block; position:fixed; inset:0; background:rgba(15,23,42,.4); z-index:85}
+    body.nav-open #backdrop{display:block; position:fixed; inset:0; background:rgba(40,30,20,.4); z-index:85}
     main{margin-left:0; padding:74px 18px 100px}
     footer{margin-left:0; padding:30px 18px 70px}
     .hero{padding:30px 22px; border-radius:16px} .hero h1{font-size:27px}
